@@ -1,0 +1,55 @@
+name: Fondo mensual
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+    inputs:
+      todo_el_anio:
+        description: 'Generar los 12 meses del año actual'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'plantilla/**'
+      - 'temas.json'
+      - 'feriados.json'
+      - 'config.json'
+      - 'imagenes/**'
+      - 'generar.mjs'
+
+permissions:
+  contents: write
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Instalar navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Generar fondo
+        run: |
+          if [ "${{ inputs.todo_el_anio }}" = "true" ]; then
+            node generar.mjs --todo
+          else
+            node generar.mjs
+          fi
+
+      - name: Guardar imágenes en el repositorio
+        run: |
+          git config user.name "fondo-mensual-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add salida
+          git diff --cached --quiet || git commit -m "Fondo actualizado"
+          git push
