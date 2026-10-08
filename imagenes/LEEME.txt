@@ -1,0 +1,17 @@
+IMÁGENES PROPIAS PARA CADA MES
+
+Crea una carpeta por mes con el número de dos dígitos y pon tus imágenes dentro:
+
+  imagenes/01/   enero
+  imagenes/02/   febrero
+  ...
+  imagenes/10/   octubre
+  imagenes/12/   diciembre
+
+- La imagen que va primero (por orden alfabético, por ejemplo 1.jpg) llena el espacio grande de arriba a la derecha.
+- La segunda (2.jpg) llena el espacio ancho que está debajo del calendario.
+- Si no pones imágenes, esos espacios se llenan solos con una ilustración del tema del mes.
+- Formatos: jpg, png, webp. Mejor si son horizontales, de buena calidad.
+
+OJO: el repositorio es público, así que cualquiera puede ver las imágenes que subas.
+Usa ilustraciones o fotos que no te importe mostrar (y que tengas derecho a usar).

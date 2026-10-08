@@ -1,0 +1,14 @@
+{
+  "name": "fondo-mensual",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Genera cada mes un fondo de pantalla con calendario y tema",
+  "scripts": {
+    "generar": "node generar.mjs",
+    "generar:todo": "node generar.mjs --todo"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

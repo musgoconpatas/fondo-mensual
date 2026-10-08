@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Fondo mensual</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+body { font-family: 'Nunito', sans-serif; }
+#raiz { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+.tarjeta { position: absolute; box-sizing: border-box; border-radius: 36px; box-shadow: 0 6px 18px rgba(60, 40, 50, 0.10); }
+.celda { width: 62px; height: 62px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; border-radius: 50%; box-sizing: border-box; }
+.script { font-family: 'Caveat', cursive; line-height: 1; }
+</style>
+</head>
+<body>
+<div id="raiz"></div>
+<script>
+// Los datos los inyecta generar.mjs (window.__DATOS__): año, mes, tema, feriados, cumpleaños e imágenes.
+const D = window.__DATOS__;
+const T = D.tema;
+
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const LETRAS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+// ---------- Formas decorativas (centradas en 0,0, radio r) ----------
+const FORMAS = {
+  flor: (r, c) => {
+    const p = [0, 72, 144, 216, 288].map(a => `<ellipse cx="0" cy="${-r * 0.5}" rx="${r * 0.36}" ry="${r * 0.55}" transform="rotate(${a})"/>`).join('');
+    return `<g fill="${c}" stroke="rgba(0,0,0,.10)" stroke-width="1">${p}</g><circle r="${r * 0.17}" fill="#F4C95D"/>`;
+  },
+  corazon: (r, c) => `<path d="M0 ${r * 0.9} C ${-r * 1.3} ${-r * 0.1} ${-r * 0.5} ${-r} 0 ${-r * 0.35} C ${r * 0.5} ${-r} ${r * 1.3} ${-r * 0.1} 0 ${r * 0.9} Z" fill="${c}"/>`,
+  hoja: (r, c) => `<path d="M0 ${-r} C ${r * 0.9} ${-r * 0.4} ${r * 0.9} ${r * 0.5} 0 ${r} C ${-r * 0.9} ${r * 0.5} ${-r * 0.9} ${-r * 0.4} 0 ${-r} Z" fill="${c}"/><path d="M0 ${-r * 0.85} L0 ${r * 0.85}" stroke="rgba(0,0,0,.15)" stroke-width="2" fill="none"/>`,
+  copo: (r, c) => {
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      s += `<g transform="rotate(${i * 60})"><line x1="0" y1="0" x2="0" y2="${-r}"/><line x1="0" y1="${-r * 0.55}" x2="${r * 0.25}" y2="${-r * 0.8}"/><line x1="0" y1="${-r * 0.55}" x2="${-r * 0.25}" y2="${-r * 0.8}"/></g>`;
+    }
+    return `<g stroke="${c}" stroke-width="${Math.max(2, r * 0.09)}" stroke-linecap="round" fill="none">${s}</g>`;
+  },
+  estrella: (r, c) => {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const rr = i % 2 ? r * 0.45 : r;
+      pts.push(`${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`);
+    }
+    return `<polygon points="${pts.join(' ')}" fill="${c}"/>`;
+  },
+  brillo: (r, c) => `<path d="M0 ${-r} Q ${r * 0.12} ${-r * 0.12} ${r} 0 Q ${r * 0.12} ${r * 0.12} 0 ${r} Q ${-r * 0.12} ${r * 0.12} ${-r} 0 Q ${-r * 0.12} ${-r * 0.12} 0 ${-r} Z" fill="${c}"/>`,
+  sol: (r, c) => {
+    let s = '';
+    for (let i = 0; i < 12; i++) s += `<line x1="0" y1="${-r * 0.72}" x2="0" y2="${-r}" transform="rotate(${i * 30})"/>`;
+    return `<circle r="${r * 0.5}" fill="${c}"/><g stroke="${c}" stroke-width="${Math.max(2, r * 0.09)}" stroke-linecap="round">${s}</g>`;
+  },
+  gota: (r, c) => `<path d="M0 ${-r} C ${r * 0.9} ${r * 0.1} ${r * 0.7} ${r} 0 ${r} C ${-r * 0.7} ${r} ${-r * 0.9} ${r * 0.1} 0 ${-r} Z" fill="${c}"/>`,
+  rombo: (r, c) => `<polygon points="0,${-r} ${r * 0.65},0 0,${r} ${-r * 0.65},0" fill="${c}"/><g stroke="rgba(255,255,255,.7)" stroke-width="2"><line x1="0" y1="${-r}" x2="0" y2="${r}"/><line x1="${-r * 0.65}" y1="0" x2="${r * 0.65}" y2="0"/></g><path d="M0 ${r} q ${r * 0.3} ${r * 0.35} 0 ${r * 0.7} t 0 ${r * 0.7}" fill="none" stroke="${c}" stroke-width="3"/>`,
+  globo: (r, c) => `<ellipse cx="0" cy="${-r * 0.15}" rx="${r * 0.6}" ry="${r * 0.75}" fill="${c}"/><ellipse cx="${-r * 0.2}" cy="${-r * 0.4}" rx="${r * 0.13}" ry="${r * 0.22}" fill="rgba(255,255,255,.4)"/><path d="M0 ${r * 0.6} l ${-r * 0.1} ${r * 0.15} h ${r * 0.2} Z" fill="${c}"/><path d="M0 ${r * 0.75} q ${r * 0.2} ${r * 0.15} 0 ${r * 0.3} t 0 ${r * 0.3}" stroke="rgba(0,0,0,.25)" fill="none" stroke-width="2"/>`,
+  adorno: (r, c) => `<rect x="${-r * 0.15}" y="${-r * 0.78}" width="${r * 0.3}" height="${r * 0.22}" rx="2" fill="#E7B64A"/><circle cx="0" cy="${-r * 0.88}" r="${r * 0.1}" fill="none" stroke="#E7B64A" stroke-width="2"/><circle cx="0" cy="${r * 0.12}" r="${r * 0.68}" fill="${c}"/><path d="M${-r * 0.4} ${-r * 0.05} A ${r * 0.5} ${r * 0.5} 0 0 1 ${-r * 0.05} ${-r * 0.4}" stroke="rgba(255,255,255,.55)" stroke-width="${r * 0.09}" fill="none" stroke-linecap="round"/>`,
+  limon: (r, c) => `<g fill="${c}" stroke="rgba(120,70,0,.22)" stroke-width="1.5"><ellipse cx="0" cy="0" rx="${r * 0.86}" ry="${r * 0.95}"/><path d="M${-r * 0.2} ${r * 0.88} Q 0 ${r * 1.22} ${r * 0.2} ${r * 0.88} Z"/><path d="M${-r * 0.16} ${-r * 0.88} Q 0 ${-r * 1.1} ${r * 0.16} ${-r * 0.88} Z"/></g><ellipse cx="${-r * 0.4}" cy="${-r * 0.3}" rx="${r * 0.16}" ry="${r * 0.34}" fill="rgba(255,255,255,.38)" transform="rotate(20 ${-r * 0.4} ${-r * 0.3})"/>`,
+  paraguas: (r, c) => `<g transform="translate(0 ${-r * 0.3})"><path d="M${-r} 0 A ${r} ${r} 0 0 1 ${r} 0 Q ${r * 0.5} ${-r * 0.18} 0 0 Q ${-r * 0.5} ${-r * 0.18} ${-r} 0 Z" fill="${c}"/><path d="M0 0 V ${r * 0.95} q 0 ${r * 0.3} ${-r * 0.28} ${r * 0.22}" fill="none" stroke="${c}" stroke-width="${Math.max(2.5, r * 0.1)}" stroke-linecap="round"/></g>`,
+  huella: (r, c) => `<g fill="${c}"><ellipse cx="0" cy="${r * 0.28}" rx="${r * 0.46}" ry="${r * 0.38}"/><circle cx="${-r * 0.58}" cy="${-r * 0.18}" r="${r * 0.2}"/><circle cx="${-r * 0.22}" cy="${-r * 0.52}" r="${r * 0.21}"/><circle cx="${r * 0.22}" cy="${-r * 0.52}" r="${r * 0.21}"/><circle cx="${r * 0.58}" cy="${-r * 0.18}" r="${r * 0.2}"/></g>`,
+  sobre: (r, c) => `<rect x="${-r * 0.9}" y="${-r * 0.62}" width="${r * 1.8}" height="${r * 1.24}" rx="${r * 0.1}" fill="${c}"/><path d="M${-r * 0.88} ${-r * 0.55} L0 ${r * 0.15} L${r * 0.88} ${-r * 0.55}" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="${Math.max(2, r * 0.08)}" stroke-linejoin="round"/>`,
+  circulo: (r, c) => `<circle r="${r * 0.35}" fill="${c}"/>`,
+  ola: (r, c) => `<path d="M${-r} 0 q ${r * 0.25} ${-r * 0.4} ${r * 0.5} 0 t ${r * 0.5} 0 t ${r * 0.5} 0 t ${r * 0.5} 0" fill="none" stroke="${c}" stroke-width="${Math.max(3, r * 0.12)}" stroke-linecap="round"/>`
+};
+
+// Qué formas usa cada motivo de los temas
+const MOTIVOS = {
+  verano: ['sol', 'brillo', 'ola', 'flor'],
+  amor: ['corazon', 'sobre', 'brillo', 'corazon', 'sobre'],
+  otonio: ['hoja', 'hoja', 'gota', 'circulo'],
+  madres: ['flor', 'flor', 'hoja', 'brillo'],
+  invierno: ['copo', 'copo', 'brillo', 'gota'],
+  cumple: ['globo', 'estrella', 'circulo', 'brillo'],
+  lluvia: ['gota', 'paraguas', 'huella', 'hoja', 'gota', 'huella'],
+  costa: ['limon', 'hoja', 'limon', 'ola', 'brillo'],
+  patrio: ['rombo', 'estrella', 'circulo'],
+  primavera: ['flor', 'flor', 'hoja', 'brillo'],
+  lila: ['flor', 'hoja', 'brillo', 'circulo'],
+  navidad: ['adorno', 'estrella', 'copo', 'hoja']
+};
+
+// Números pseudoaleatorios repetibles: el mismo mes siempre se ve igual
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Reparte las formas del tema sin que se encimen
+function formasSueltas(w, h, seed, n, rMin, rMax) {
+  const R = rng(seed);
+  const tipos = MOTIVOS[T.motivo] || MOTIVOS.primavera;
+  const puestas = [];
+  let out = '';
+  for (let i = 0; i < n * 40 && puestas.length < n; i++) {
+    const r = rMin + R() * (rMax - rMin);
+    const x = r + R() * (w - 2 * r);
+    const y = r + R() * (h - 2 * r);
+    if (puestas.some(p => Math.hypot(p.x - x, p.y - y) < (p.r + r) * 1.05)) continue;
+    puestas.push({ x, y, r });
+    const tipo = tipos[puestas.length % tipos.length];
+    let color = T.formas[Math.floor(R() * T.formas.length)];
+    // Las hojas son verdes, salvo en los meses de otoño
+    if (tipo === 'hoja' && T.motivo !== 'otonio') color = T.hoja || '#8FAA80';
+    // Los limones son siempre amarillos
+    if (tipo === 'limon') color = T.formas[Math.floor(R() * 2)];
+    const giro = Math.round(R() * 360);
+    out += `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${giro})" opacity="0.93">${FORMAS[tipo](r, color)}</g>`;
+  }
+  return out;
+}
+
+function escena(w, h, seed) {
+  const n = Math.round(w * h / 9500);
+  const [c0, c1, c2] = T.cielo;
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+    <defs><linearGradient id="cielo${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c0}"/><stop offset="0.6" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
+    <rect width="${w}" height="${h}" fill="url(#cielo${seed})"/>${formasSueltas(w, h, seed, n, 18, 54)}</svg>`;
+}
+
+// ---------- Piezas compartidas por las escenas de ventana ----------
+function fondoVentana(w, h, seed) {
+  const R = rng(seed * 13 + 5);
+  let luces = '', gotas = '';
+  for (let i = 0; i < 26; i++) {
+    const x = R() * w, y = R() * h * 0.85, r = 10 + R() * 28;
+    luces += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(0)}" fill="url(#bok${seed}${i % 2})" opacity="${(0.35 + R() * 0.5).toFixed(2)}"/>`;
+  }
+  const n = Math.round(w * h / 1300);
+  for (let i = 0; i < n; i++) {
+    const x = R() * w, y = R() * h, rx = 2 + R() * 4, ry = rx * (1.2 + R() * 0.6);
+    gotas += `<ellipse cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" rx="${rx.toFixed(1)}" ry="${ry.toFixed(1)}"/>`;
+  }
+  return `<defs>
+      <linearGradient id="vent${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B221F"/><stop offset="1" stop-color="#5C3A26"/></linearGradient>
+      <radialGradient id="bok${seed}0"><stop offset="0.55" stop-color="#FFC266" stop-opacity="0.6"/><stop offset="1" stop-color="#FFB24D" stop-opacity="0.12"/></radialGradient>
+      <radialGradient id="bok${seed}1"><stop offset="0.55" stop-color="#FFE29A" stop-opacity="0.6"/><stop offset="1" stop-color="#FFD27A" stop-opacity="0.12"/></radialGradient>
+      <radialGradient id="brasa"><stop offset="0" stop-color="#FFC866" stop-opacity="0.55"/><stop offset="1" stop-color="#FFC866" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="${w}" height="${h}" fill="url(#vent${seed})"/>
+    ${luces}
+    <g fill="rgba(255,255,255,.14)" stroke="rgba(255,236,200,.5)" stroke-width="1">${gotas}</g>`;
+}
+
+function vela(x, y, s) {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <circle cx="0" cy="-92" r="110" fill="url(#brasa)"/>
+    <rect x="-42" y="-100" width="84" height="100" rx="8" fill="rgba(255,226,170,.30)" stroke="rgba(255,226,170,.65)" stroke-width="2"/>
+    <g stroke="rgba(255,226,170,.35)" stroke-width="2">${[-28, -14, 0, 14, 28].map(v => `<line x1="${v}" y1="-94" x2="${v}" y2="-6"/>`).join('')}</g>
+    <rect x="-34" y="-70" width="68" height="64" rx="6" fill="#F6E3BE"/>
+    <line x1="0" y1="-70" x2="0" y2="-80" stroke="#3A2A20" stroke-width="3"/>
+    <path d="M0 -112 C 9 -98 9 -84 0 -80 C -9 -84 -9 -98 0 -112 Z" fill="#FFD66B"/>
+    <path d="M0 -102 C 4 -95 4 -88 0 -86 C -4 -88 -4 -95 0 -102 Z" fill="#FFF3C4"/>
+  </g>`;
+}
+
+function arce(x, y, r, rot, c) {
+  const mitad = [[0, -1], [0.17, -0.6], [0.55, -0.85], [0.48, -0.4], [0.95, -0.35], [0.62, -0.05], [0.82, 0.28], [0.3, 0.28], [0.28, 0.62], [0, 0.5]];
+  const der = mitad.map(p => [p[0] * r, p[1] * r]);
+  const izq = mitad.slice(1, -1).reverse().map(p => [-p[0] * r, p[1] * r]);
+  const pts = [...der, ...izq].map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  return `<g transform="translate(${x} ${y}) rotate(${rot})">
+    <polygon points="${pts}" fill="rgba(0,0,0,.3)" transform="translate(3 4)" stroke-linejoin="round"/>
+    <line x1="0" y1="${r * 0.5}" x2="0" y2="${r * 1.05}" stroke="#6A4B2E" stroke-width="${Math.max(2, r * 0.06)}" stroke-linecap="round"/>
+    <polygon points="${pts}" fill="${c}" stroke-linejoin="round"/>
+    <path d="M0 ${r * 0.5} L0 ${-r * 0.95} M0 ${r * 0.3} L${r * 0.8} ${-r * 0.3} M0 ${r * 0.3} L${-r * 0.8} ${-r * 0.3} M0 ${-r * 0.2} L${r * 0.5} ${-r * 0.75} M0 ${-r * 0.2} L${-r * 0.5} ${-r * 0.75}" stroke="rgba(255,226,160,.55)" stroke-width="${Math.max(1.5, r * 0.035)}" fill="none" stroke-linecap="round"/>
+  </g>`;
+}
+
+// ---------- Pino nevado (base en 0,0; crece hacia arriba) ----------
+function pino(x, y, s, verde, nieve) {
+  let capas = '';
+  for (let i = 0; i < 4; i++) {
+    const base = -12 - i * 46, top = base - 62, ancho = 74 - i * 14, alto = base - top;
+    capas += `<polygon points="${-ancho},${base} 0,${top} ${ancho},${base}" fill="${verde}"/>`;
+    capas += `<path d="M0 ${top} L${ancho * 0.58} ${top + alto * 0.58} Q${ancho * 0.3} ${top + alto * 0.46} 0 ${top + alto * 0.58} Q${-ancho * 0.3} ${top + alto * 0.46} ${-ancho * 0.58} ${top + alto * 0.58} Z" fill="${nieve}"/>`;
+    capas += `<ellipse cx="${-ancho * 0.9}" cy="${base - 2}" rx="${ancho * 0.22}" ry="5" fill="${nieve}"/><ellipse cx="${ancho * 0.9}" cy="${base - 2}" rx="${ancho * 0.22}" ry="5" fill="${nieve}"/>`;
+  }
+  return `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-6" y="-14" width="12" height="24" fill="#5A4636"/>${capas}</g>`;
+}
+
+// ---------- Fiestas Patrias: bandera, copihue, nubes ----------
+function estrellaCl(cx, cy, r, c) {
+  let p = '';
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.4 : r; p += `${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)} `; }
+  return `<polygon points="${p}" fill="${c}"/>`;
+}
+function banderaCl(w, h) {
+  return `<rect width="${w}" height="${h}" fill="#FFFFFF"/><rect y="${h / 2}" width="${w}" height="${h / 2}" fill="#D52B1E"/><rect width="${h / 2}" height="${h / 2}" fill="#1F4FA3"/>${estrellaCl(h / 4, h / 4, h / 6.5, '#FFFFFF')}<rect width="${w}" height="${h}" fill="none" stroke="rgba(0,0,0,.12)" stroke-width="0.8"/>`;
+}
+function hojaCl(x, y, s, rot) {
+  return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M0 0 C 26 -10 40 14 30 44 C 16 52 -6 30 0 0 Z" fill="#4C7B3A"/><path d="M2 4 C 14 18 24 30 28 42" stroke="#2F5A28" stroke-width="2" fill="none"/></g>`;
+}
+function copihueCl(x, y, s, rot) {
+  return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">
+    <path d="M-7 0 L7 0 L24 62 Q0 78 -24 62 Z" fill="#D8284A"/>
+    <path d="M-2 0 L-8 66 M3 0 L10 68" stroke="#A81C38" stroke-width="2.2" fill="none" opacity=".8"/>
+    <path d="M-9 4 L-17 60" stroke="#F0587A" stroke-width="4" fill="none" stroke-linecap="round" opacity=".85"/>
+    <ellipse cx="-14" cy="66" rx="12" ry="8" fill="#E23557"/><ellipse cx="0" cy="70" rx="12" ry="8" fill="#E8486A"/><ellipse cx="14" cy="66" rx="12" ry="8" fill="#DB2D4F"/>
+    <rect x="-3.5" y="-8" width="7" height="10" rx="2" fill="#5E8A3C"/>
+  </g>`;
+}
+function nubeCl(x, y, s, op) {
+  return `<g transform="translate(${x} ${y}) scale(${s})" fill="#fff" opacity="${op}"><circle cx="0" cy="0" r="20"/><circle cx="24" cy="-8" r="26"/><circle cx="52" cy="2" r="20"/><circle cx="26" cy="10" r="20"/></g>`;
+}
+
+// ---------- Cerezos en flor ----------
+function florCerezo(x, y, r, rot, c) {
+  let p = '';
+  for (let i = 0; i < 5; i++) p += `<ellipse cx="0" cy="${-r * 0.62}" rx="${r * 0.46}" ry="${r * 0.62}" fill="${c}" transform="rotate(${i * 72})"/>`;
+  return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(0)})">${p}<circle r="${r * 0.2}" fill="#F4C95D"/><circle r="${r * 0.09}" fill="#C9772F"/></g>`;
+}
+function petaloCerezo(x, y, s, rot, c) {
+  return `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(0)}) scale(${s})" d="M0 0 C 6 -6 12 -2 10 6 C 8 10 2 10 0 4 C -1 2 -1 1 0 0 Z" fill="${c}"/>`;
+}
+
+// ---------- Hortensias ----------
+const PAL_ROSA = ['#F2A6C4', '#E985AE', '#F8C6DA', '#C95A8C'];
+const PAL_AZUL = ['#9DB9EA', '#7C9BDC', '#BDD1F3', '#5F79BE'];
+const PAL_LILA = ['#B89BD8', '#9C80C9', '#CDB9E8', '#7A5FA8'];
+function floritoHo(x, y, f, rot, c) {
+  let p = '';
+  for (let i = 0; i < 4; i++) p += `<ellipse cx="0" cy="${-f * 0.36}" rx="${f * 0.4}" ry="${f * 0.5}" fill="${c}" stroke="rgba(120,60,100,.18)" stroke-width="${Math.max(0.4, f * 0.03).toFixed(2)}" transform="rotate(${i * 90})"/>`;
+  return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(0)})">${p}<circle r="${(f * 0.1).toFixed(2)}" fill="#DCD6EA"/></g>`;
+}
+function hortensiaCl(cx, cy, r, seed, pal) {
+  const R = rng(seed);
+  const n = Math.round(18 + r * 0.55), pts = [];
+  for (let i = 0; i < n; i++) { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * 0.86; pts.push([cx + Math.cos(a) * d * r, cy + Math.sin(a) * d * r * 0.9]); }
+  pts.sort((a, b) => a[1] - b[1]);
+  const f = r * 0.34;
+  let out = `<ellipse cx="${cx}" cy="${cy}" rx="${r * 0.96}" ry="${r * 0.88}" fill="${pal[3]}" opacity=".85"/>`;
+  pts.forEach((p) => { out += floritoHo(p[0], p[1], f * (0.8 + R() * 0.4), R() * 90, pal[Math.floor(R() * 3)]); });
+  return out;
+}
+function hojaHo(x, y, s, rot, c) {
+  return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M0 0 C 40 -52 112 -44 132 0 C 112 44 40 52 0 0 Z" fill="${c || '#3F6B3A'}"/><path d="M0 0 L128 0 M30 0 L56 -26 M30 0 L56 26 M66 0 L92 -22 M66 0 L92 22" stroke="rgba(255,255,255,.28)" stroke-width="2.4" fill="none"/></g>`;
+}
+
+// ---------- Navidad: pascua, chispas ----------
+function pascuaCl(x, y, r, rot) {
+  let ext = '', inn = '';
+  for (let k = 0; k < 8; k++) ext += `<path transform="rotate(${k * 45 + rot}) scale(${r / 52})" d="M0 0 C 14 -14 16 -36 0 -56 C -16 -36 -14 -14 0 0Z" fill="#A8102A"/>`;
+  for (let k = 0; k < 8; k++) inn += `<path transform="rotate(${k * 45 + 22.5 + rot}) scale(${r / 52 * 0.8})" d="M0 0 C 14 -14 16 -36 0 -56 C -16 -36 -14 -14 0 0Z" fill="#D72440"/><path transform="rotate(${k * 45 + 22.5 + rot}) scale(${r / 52 * 0.8})" d="M0 -4 L0 -46" stroke="#9A0F26" stroke-width="2" opacity=".7"/>`;
+  let c = '';
+  for (let k = 0; k < 6; k++) c += `<circle cx="${(Math.cos(k * 1.05) * r * 0.1).toFixed(1)}" cy="${(Math.sin(k * 1.05) * r * 0.1).toFixed(1)}" r="${(r * 0.05).toFixed(1)}" fill="#E3C54A"/>`;
+  return `<g transform="translate(${x} ${y}) scale(1 0.82)">${ext}${inn}<circle r="${(r * 0.15).toFixed(1)}" fill="#8A7A22"/>${c}</g>`;
+}
+function chispaCl(x, y, r, seed, idGlow) {
+  const R = rng(seed);
+  let l = '', p = '';
+  for (let i = 0; i < 46; i++) {
+    const a = R() * Math.PI * 2, len = r * (0.35 + R() * 0.65);
+    const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+    l += `<line x1="${(x + Math.cos(a) * r * 0.08).toFixed(1)}" y1="${(y + Math.sin(a) * r * 0.08).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${R() < 0.35 ? '#FFFFFF' : '#FFD98A'}" stroke-width="${(0.8 + R() * 1.1).toFixed(1)}" stroke-linecap="round" opacity="${(0.6 + R() * 0.4).toFixed(2)}"/>`;
+    if (R() < 0.5) p += `<circle cx="${(x2 + Math.cos(a) * 4).toFixed(1)}" cy="${(y2 + Math.sin(a) * 4).toFixed(1)}" r="${(0.9 + R() * 1.3).toFixed(1)}" fill="#FFE9B0"/>`;
+  }
+  return `<circle cx="${x}" cy="${y}" r="${r * 0.9}" fill="url(#${idGlow})"/>${l}${p}<circle cx="${x}" cy="${y}" r="${r * 0.1}" fill="#FFFFFF"/>`;
+}
+
+// ---------- Flores para ramos (base en 0,0 y crecen hacia arriba) ----------
+function tulipan(x, y, s, c, h) {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <path d="M0 0 C -2 ${-h * 0.4} 2 ${-h * 0.7} 0 ${-h}" stroke="#6E9150" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M0 ${-h * 0.12} C -38 ${-h * 0.3} -34 ${-h * 0.62} -24 ${-h * 0.7} C -14 ${-h * 0.5} -4 ${-h * 0.35} 0 ${-h * 0.12} Z" fill="#7FA562"/>
+    <g transform="translate(0 ${-h})">
+      <path d="M-17 0 C -19 -26 -9 -40 0 -48 C 9 -40 19 -26 17 0 C 9 8 -9 8 -17 0 Z" fill="${c}"/>
+      <path d="M0 -48 C -7 -30 -7 -12 0 6 C 7 -12 7 -30 0 -48 Z" fill="rgba(255,255,255,.38)"/>
+    </g>
+  </g>`;
+}
+
+function ramita(x, y, rot, largo, c1, c2) {
+  let s = `<path d="M0 0 C ${largo * 0.08} ${-largo * 0.5} ${-largo * 0.08} ${-largo * 0.8} 0 ${-largo}" stroke="#6E8F5A" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  for (let i = 1; i <= 6; i++) {
+    const yy = -largo * i / 7, lado = i % 2 ? 1 : -1;
+    const fx = lado * (12 + i * 2), fy = yy - 12;
+    s += `<path d="M0 ${yy} L${fx} ${fy}" stroke="#6E8F5A" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+    s += `<circle cx="${fx}" cy="${fy}" r="6" fill="${i % 2 ? c1 : c2}"/><circle cx="${fx}" cy="${fy}" r="1.8" fill="#8C3B5C"/>`;
+  }
+  s += `<circle cx="0" cy="${-largo}" r="6.5" fill="${c1}"/><circle cx="0" cy="${-largo}" r="2" fill="#8C3B5C"/>`;
+  return `<g transform="translate(${x} ${y}) rotate(${rot})">${s}</g>`;
+}
+
+function espiga(x, y, rot, largo) {
+  let s = `<path d="M0 0 C ${largo * 0.05} ${-largo * 0.5} ${-largo * 0.05} ${-largo * 0.8} 0 ${-largo}" stroke="#7A9B62" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  for (let i = 0; i < 9; i++) {
+    const yy = -largo * (0.4 + i * 0.065), lado = i % 2 ? 1 : -1;
+    const fx = lado * (9 + (8 - i) * 0.9), r = 7 - i * 0.35;
+    s += `<circle cx="${fx}" cy="${yy}" r="${r.toFixed(1)}" fill="#E4EBF6" stroke="#B7C4E0" stroke-width="1.5"/><circle cx="${fx}" cy="${yy}" r="${(r * 0.35).toFixed(1)}" fill="#9A8FC8"/>`;
+  }
+  return `<g transform="translate(${x} ${y}) rotate(${rot})">${s}</g>`;
+}
+
+// Escenas dibujadas a mano para el espacio grande de algunos meses (campo "escena" en temas.json)
+const ESCENAS = {
+  costa: (w, h) => {
+    const g = (x, y, r, rot, c) => `<g transform="translate(${x} ${y}) rotate(${rot})">${FORMAS.hoja(r, c)}</g>`;
+    const verdes = ['#6E9150', '#86A863', '#587A43'];
+    const hojas = [
+      [30, 70, 30, -20], [100, 36, 32, 40], [190, 84, 30, 10], [270, 72, 32, -50], [360, 34, 30, 30],
+      [440, 30, 32, -30], [520, 24, 34, 20], [572, 62, 30, 70], [14, 130, 28, 80], [26, 196, 30, 100],
+      [8, 260, 26, 70], [568, 122, 32, -10], [556, 192, 30, 20], [580, 262, 34, -20], [548, 318, 30, 40]
+    ].map((p, i) => g(p[0], p[1], p[2], p[3], verdes[i % 3])).join('');
+    const limones = [
+      [72, 100, 30, 0], [148, 104, 25, 8], [232, 130, 32, -6], [332, 106, 27, 5], [434, 88, 29, -4],
+      [512, 108, 27, 6], [552, 176, 27, 10], [566, 244, 30, -8], [34, 170, 24, 6]
+    ].map(p => `<g transform="translate(${p[0]} ${p[1]}) rotate(${p[3]})">${FORMAS.limon(p[2], '#F2B632')}</g>`).join('');
+    const R = rng(11);
+    let olas = '';
+    for (let i = 0; i < 16; i++) {
+      const y = 290 + R() * 170, x = R() * 520, l = 24 + R() * 50;
+      olas += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} h${l.toFixed(0)}" stroke="rgba(255,255,255,.38)" stroke-width="3" stroke-linecap="round"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="costaCielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8CCBEA"/><stop offset="1" stop-color="#E4F3F5"/></linearGradient>
+        <linearGradient id="costaMar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#46A0CB"/><stop offset="1" stop-color="#2B77A8"/></linearGradient>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#costaCielo)"/>
+      <g fill="#FFFFFF" opacity="0.88"><ellipse cx="150" cy="208" rx="62" ry="14"/><ellipse cx="192" cy="198" rx="40" ry="16"/><ellipse cx="430" cy="214" rx="50" ry="12"/></g>
+      <path d="M0 238 C 50 214 90 208 140 226 S 220 196 280 214 S 380 222 470 236 L 592 244 V290 H0 Z" fill="#93B4C6"/>
+      <path d="M592 150 L560 168 C 520 190 500 230 470 262 L 452 296 L 592 296 Z" fill="#7C8F8D"/>
+      <path d="M592 150 L572 172 L592 270 Z" fill="#98A9A5"/>
+      <g fill="#6E9150"><ellipse cx="560" cy="166" rx="26" ry="9"/><ellipse cx="524" cy="188" rx="22" ry="8"/><ellipse cx="500" cy="214" rx="16" ry="7"/></g>
+      <rect y="270" width="${w}" height="${h - 270}" fill="url(#costaMar)"/>
+      ${olas}
+      <path d="M0 470 L0 424 Q 40 398 90 412 Q 130 402 170 432 Q 200 452 232 470 Z" fill="#DCC8A8"/>
+      <path d="M120 470 Q 160 444 215 454 Q 262 460 284 470 Z" fill="#C9B08C"/>
+      <path d="M-12 50 C 120 24 250 78 400 42 S 570 10 612 38" fill="none" stroke="#7A5A3F" stroke-width="20" stroke-linecap="round"/>
+      ${hojas}${limones}
+      ${g(300, 150, 26, 120, '#86A863')}${g(120, 150, 24, 60, '#6E9150')}
+    </svg>`;
+  },
+
+  // Gato esponjoso con bufanda roja sentado en la nieve (diseño propio)
+  gatoNieve: (w, h, seed) => {
+    const gato = `<g transform="translate(290 432) scale(1.42)">
+      <path d="M40 -12 C 104 -8 112 -54 84 -66" fill="none" stroke="#8D8680" stroke-width="26" stroke-linecap="round"/>
+      <path d="M40 -12 C 104 -8 112 -54 84 -66" fill="none" stroke="#B8B1AA" stroke-width="10" stroke-linecap="round" opacity="0.6"/>
+      <ellipse cx="0" cy="-52" rx="46" ry="56" fill="#CFC8C0"/>
+      <ellipse cx="-17" cy="-24" rx="11" ry="26" fill="#A7A099"/><ellipse cx="17" cy="-24" rx="11" ry="26" fill="#A7A099"/>
+      <g stroke="#8D8680" stroke-width="2" stroke-linecap="round"><path d="M-22 -34 h10 M-22 -26 h10 M-22 -18 h10 M12 -34 h10 M12 -26 h10 M12 -18 h10"/></g>
+      <ellipse cx="-16" cy="-5" rx="14" ry="9" fill="#8D8680"/><ellipse cx="16" cy="-5" rx="14" ry="9" fill="#8D8680"/>
+      <ellipse cx="0" cy="-58" rx="30" ry="40" fill="#F4EFE8"/>
+      <g fill="#F4EFE8"><circle cx="-26" cy="-34" r="9"/><circle cx="26" cy="-34" r="9"/><circle cx="-30" cy="-52" r="10"/><circle cx="30" cy="-52" r="10"/><circle cx="-24" cy="-70" r="9"/><circle cx="24" cy="-70" r="9"/></g>
+      <circle cx="0" cy="-124" r="37" fill="#F4EFE8"/>
+      <g fill="#F4EFE8"><circle cx="-34" cy="-112" r="11"/><circle cx="34" cy="-112" r="11"/><circle cx="-30" cy="-100" r="10"/><circle cx="30" cy="-100" r="10"/></g>
+      <polygon points="-31,-142 -28,-178 -8,-152" fill="#8D8680"/><polygon points="31,-142 28,-178 8,-152" fill="#8D8680"/>
+      <polygon points="-27,-148 -26,-168 -13,-153" fill="#E9B7B9"/><polygon points="27,-148 26,-168 13,-153" fill="#E9B7B9"/>
+      <ellipse cx="0" cy="-134" rx="24" ry="26" fill="#A39C96"/>
+      <path d="M-4 -158 L0 -142 L4 -158" fill="none" stroke="#6F6963" stroke-width="2.5" stroke-linecap="round"/>
+      <ellipse cx="0" cy="-110" rx="16" ry="12" fill="#F8F4EE"/>
+      <ellipse cx="-13" cy="-131" rx="6.5" ry="7.5" fill="#7FB6D9"/><ellipse cx="13" cy="-131" rx="6.5" ry="7.5" fill="#7FB6D9"/>
+      <ellipse cx="-13" cy="-131" rx="2.6" ry="5" fill="#25323C"/><ellipse cx="13" cy="-131" rx="2.6" ry="5" fill="#25323C"/>
+      <circle cx="-11" cy="-134" r="1.6" fill="#fff"/><circle cx="15" cy="-134" r="1.6" fill="#fff"/>
+      <path d="M-4 -118 h8 l-4 5 Z" fill="#D98A94"/>
+      <path d="M0 -113 v4 M0 -109 q-5 4 -9 1 M0 -109 q5 4 9 1" fill="none" stroke="#8D8680" stroke-width="1.6" stroke-linecap="round"/>
+      <g stroke="rgba(255,255,255,.9)" stroke-width="1.4" stroke-linecap="round"><line x1="-14" y1="-112" x2="-40" y2="-117"/><line x1="-14" y1="-108" x2="-40" y2="-106"/><line x1="14" y1="-112" x2="40" y2="-117"/><line x1="14" y1="-108" x2="40" y2="-106"/></g>
+      <path d="M-40 -92 Q 0 -70 40 -92 L 44 -74 Q 0 -50 -44 -74 Z" fill="#C8302E"/>
+      <path d="M8 -68 L40 -72 L58 -20 L26 -14 Z" fill="#B82A28"/>
+      <g stroke="#E8E2D8" stroke-width="3" stroke-linecap="round"><line x1="29" y1="-16" x2="29" y2="-8"/><line x1="40" y1="-18" x2="40" y2="-10"/><line x1="51" y1="-20" x2="51" y2="-12"/></g>
+      <g transform="translate(-14 -78) scale(0.9)">${FORMAS.copo(6, '#FFFFFF')}</g><g transform="translate(18 -70)">${FORMAS.copo(5, '#FFFFFF')}</g><g transform="translate(42 -46)">${FORMAS.copo(6, '#FFFFFF')}</g><g transform="translate(34 -32)">${FORMAS.copo(5, '#FFFFFF')}</g>
+    </g>`;
+    const R = rng(seed * 17 + 9);
+    let nieveCaida = '';
+    for (let i = 0; i < 110; i++) {
+      nieveCaida += `<circle cx="${(R() * w).toFixed(0)}" cy="${(R() * h).toFixed(0)}" r="${(1.3 + R() * 2.4).toFixed(1)}" opacity="${(0.55 + R() * 0.4).toFixed(2)}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="nieveCielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D5DEE7"/><stop offset="1" stop-color="#F1F5F8"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#nieveCielo)"/>
+      ${pino(40, 346, 0.7, '#7D95A0', '#F4F8FA')}${pino(212, 336, 0.62, '#8AA0A8', '#F4F8FA')}${pino(540, 340, 0.8, '#7D95A0', '#F4F8FA')}
+      <path d="M0 346 Q 150 328 300 344 T 592 338 V470 H0 Z" fill="#EEF2F6"/>
+      ${pino(92, 372, 1.22, '#2F4A3E', '#FFFFFF')}${pino(400, 358, 1.02, '#34524A', '#FFFFFF')}
+      <path d="M0 404 Q 200 384 400 408 T 592 398 V470 H0 Z" fill="#FFFFFF"/>
+      <ellipse cx="290" cy="436" rx="92" ry="12" fill="rgba(110,130,160,.28)"/>
+      ${gato}
+      <g fill="#FFFFFF">${nieveCaida}</g>
+    </svg>`;
+  },
+
+  pinos: (w, h, seed) => {
+    const R = rng(seed * 7 + 4);
+    let arboles = '';
+    [[60, 0.8], [150, 1.05], [250, 0.7], [350, 1.15], [455, 0.85], [550, 1.0], [650, 0.75]].forEach((p, i) => {
+      arboles += pino(p[0], 258 + (i % 3) * 8, p[1], i % 2 ? '#2F4A3E' : '#3B5A4E', '#FFFFFF');
+    });
+    let huellas = '';
+    for (let i = 0; i < 9; i++) {
+      const x = 40 + i * 76, y = 318 + (i % 2 ? 10 : -6);
+      huellas += `<g transform="translate(${x} ${y}) rotate(${80 + (i % 2) * 8})" opacity="0.8">${FORMAS.huella(10, '#B7C5D6')}</g>`;
+    }
+    let caida = '';
+    for (let i = 0; i < 70; i++) {
+      caida += `<circle cx="${(R() * w).toFixed(0)}" cy="${(R() * h).toFixed(0)}" r="${(1.3 + R() * 2.4).toFixed(1)}" opacity="${(0.55 + R() * 0.4).toFixed(2)}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="pinosCielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D5DEE7"/><stop offset="1" stop-color="#F1F5F8"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#pinosCielo)"/>
+      <path d="M0 250 Q 180 232 350 248 T 700 240 V352 H0 Z" fill="#E9EFF4"/>
+      ${arboles}
+      <path d="M0 286 Q 220 262 440 290 T 700 278 V352 H0 Z" fill="#FFFFFF"/>
+      ${huellas}
+      <g fill="#FFFFFF">${caida}</g>
+    </svg>`;
+  },
+
+  // Torta con una vela sobre una manta en el pasto, con burbujas (diseño propio)
+  pastel: (w, h, seed) => {
+    const R = rng(seed * 13 + 5);
+    const fresa = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 -11 C 14 -11 16 6 0 15 C -16 6 -14 -11 0 -11 Z" fill="#D9482F"/><path d="M-9 -10 Q0 -17 9 -10 Q0 -6 -9 -10Z" fill="#5E8A3C"/><circle cx="-4" cy="-2" r="1.2" fill="#F6C9B8"/><circle cx="4" cy="1" r="1.2" fill="#F6C9B8"/><circle cx="-1" cy="7" r="1.2" fill="#F6C9B8"/></g>`;
+    const burbuja = (x, y, r) => `<g><circle cx="${x}" cy="${y}" r="${r}" fill="rgba(255,255,255,.10)" stroke="rgba(255,235,245,.7)" stroke-width="1.6"/><path d="M${x - r * 0.6} ${y - r * 0.2} A ${r * 0.65} ${r * 0.65} 0 0 1 ${x - r * 0.15} ${y - r * 0.62}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".85"/><circle cx="${x + r * 0.4}" cy="${y + r * 0.45}" r="${r * 0.14}" fill="#FFD6EA" opacity=".8"/></g>`;
+    let burbujas = '';
+    for (let i = 0; i < 18; i++) burbujas += burbuja(20 + R() * (w - 40), 40 + R() * (h - 60), 7 + R() * 14);
+    let flores = '';
+    for (let i = 0; i < 22; i++) flores += `<circle cx="${(250 + R() * 340).toFixed(0)}" cy="${(270 + R() * 190).toFixed(0)}" r="${(4 + R() * 9).toFixed(0)}" fill="#fff" opacity="0.35"/>`;
+    let pasto = '';
+    for (let i = 0; i < 70; i++) { const x = R() * w, y = 70 + R() * (h - 70); pasto += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} q2 -9 5 -14" stroke="#6C7F4F" stroke-width="1.6" fill="none" opacity=".55"/>`; }
+    let fresas = '';
+    [[-78, 0], [-52, -12], [-18, -17], [18, -17], [52, -12], [78, 0], [-62, 14], [0, 18], [62, 14]].forEach((p) => { fresas += fresa(390 + p[0] * 0.95, 304 + p[1] * 0.9, 1.05); });
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="pastoJ" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3C4A32"/><stop offset="1" stop-color="#586A41"/></linearGradient>
+        <linearGradient id="tortaJ" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#EDE6E2"/><stop offset=".5" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6DCD8"/></linearGradient>
+        <radialGradient id="luzJ" cx=".72" cy=".62" r=".5"><stop offset="0" stop-color="#FFE9B8" stop-opacity=".55"/><stop offset="1" stop-color="#FFE9B8" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#pastoJ)"/>
+      <rect y="0" width="${w}" height="46" fill="#E9E6DD"/>
+      ${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `<rect x="${i * 80 + 12}" y="0" width="52" height="46" fill="#F5F3EC"/>`).join('')}
+      <rect y="40" width="${w}" height="10" fill="#3C4A32"/>
+      ${pasto}
+      <polygon points="30,372 118,258 592,246 592,470 238,470" fill="#CFC9C0"/>
+      <polygon points="30,372 118,258 126,262 44,376" fill="#E8E3DB"/>
+      <polygon points="30,372 238,470 232,476 22,376" fill="#E8E3DB"/>
+      ${flores}
+      <ellipse cx="400" cy="372" rx="150" ry="62" fill="url(#luzJ)"/>
+      <ellipse cx="390" cy="384" rx="118" ry="30" fill="#F7F4F0"/>
+      <ellipse cx="390" cy="380" rx="106" ry="26" fill="#FFFFFF"/>
+      <path d="M296 306 V366 A 94 24 0 0 0 484 366 V306 Z" fill="url(#tortaJ)"/>
+      <path d="M298 352 A 94 24 0 0 0 482 352 V362 A 94 24 0 0 1 298 362 Z" fill="#F6C6D3"/>
+      ${Array.from({ length: 14 }, (_, i) => `<circle cx="${304 + i * 13.6}" cy="${354 + Math.sin(i / 14 * Math.PI) * 15}" r="3.4" fill="#F2A8BB"/>`).join('')}
+      <ellipse cx="390" cy="306" rx="94" ry="24" fill="#FFFFFF"/>
+      <ellipse cx="390" cy="306" rx="62" ry="14" fill="#FBD9E3"/>
+      ${fresas}
+      <rect x="385" y="228" width="10" height="78" rx="3" fill="#FBE9F0"/>
+      <rect x="387" y="228" width="3" height="78" fill="#fff" opacity=".8"/>
+      <ellipse cx="390" cy="212" rx="22" ry="26" fill="#FFB347" opacity=".35"/>
+      <path d="M390 190 C 399 202 399 214 390 224 C 381 214 381 202 390 190 Z" fill="#FF9A3C"/>
+      <path d="M390 200 C 395 208 394 215 390 221 C 386 215 385 208 390 200 Z" fill="#FFE59A"/>
+      ${burbujas}
+    </svg>`;
+  },
+
+  burbujasCumple: (w, h, seed) => {
+    const R = rng(seed * 11 + 3);
+    const burbuja = (x, y, r) => `<g><circle cx="${x}" cy="${y}" r="${r}" fill="rgba(255,255,255,.10)" stroke="rgba(255,235,245,.7)" stroke-width="1.6"/><path d="M${x - r * 0.6} ${y - r * 0.2} A ${r * 0.65} ${r * 0.65} 0 0 1 ${x - r * 0.15} ${y - r * 0.62}" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity=".85"/><circle cx="${x + r * 0.4}" cy="${y + r * 0.45}" r="${r * 0.14}" fill="#FFD6EA" opacity=".8"/></g>`;
+    let b = '';
+    for (let i = 0; i < 24; i++) b += burbuja(20 + R() * (w - 40), 40 + R() * (h - 50), 8 + R() * 18);
+    const banderines = ['#F2A8BB', '#FBE9F0', '#E9B93C', '#F7C8D6', '#C9A7DC'].map((c, i) => 0);
+    let flags = '';
+    for (let i = 0; i < 14; i++) {
+      const x = 20 + i * 50, y = 22 + Math.sin(i / 13 * Math.PI) * 14;
+      flags += `<polygon points="${x},${y} ${x + 36},${y} ${x + 18},${y + 34}" fill="${['#F2A8BB', '#FBE9F0', '#E9B93C', '#C9A7DC', '#F7C8D6'][i % 5]}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="pastoJ2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3C4A32"/><stop offset="1" stop-color="#586A41"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#pastoJ2)"/>
+      <path d="M0 20 Q 350 62 700 20" fill="none" stroke="#E9E6DD" stroke-width="2.5"/>
+      ${flags}
+      <polygon points="260,352 420,170 700,150 700,352" fill="#CFC9C0"/>
+      <polygon points="260,352 420,170 428,174 276,352" fill="#E8E3DB"/>
+      <g transform="translate(560 250)"><ellipse cx="0" cy="40" rx="42" ry="9" fill="rgba(0,0,0,.2)"/><path d="M-26 40 L-22 6 H22 L26 40 Z" fill="#F6C6D3"/><path d="M-30 8 Q 0 -34 30 8 Z" fill="#FFFFFF"/><circle cx="0" cy="-22" r="8" fill="#D9482F"/><rect x="-1.5" y="-48" width="3" height="20" rx="1.5" fill="#FBE9F0"/><path d="M0 -62 C 6 -55 6 -50 0 -46 C -6 -50 -6 -55 0 -62 Z" fill="#FF9A3C"/></g>
+      ${b}
+    </svg>`;
+  },
+
+  // Gato en silueta mirando la lluvia desde la ventana (diseño propio)
+  gatoVentana: (w, h, seed) => {
+    const R = rng(seed * 19 + 7);
+    let gotas = '';
+    for (let i = 0; i < 150; i++) {
+      const x = 76 + R() * 440, y = 76 + R() * 280, r = 1 + R() * 3.2;
+      gotas += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="rgba(255,255,255,.55)"/><circle cx="${(x - r * 0.3).toFixed(1)}" cy="${(y - r * 0.3).toFixed(1)}" r="${(r * 0.4).toFixed(1)}" fill="#fff"/>`;
+    }
+    let chorros = '';
+    for (let i = 0; i < 9; i++) {
+      const x = 90 + R() * 420, y = 80 + R() * 160, l = 40 + R() * 90;
+      chorros += `<path d="M${x.toFixed(0)} ${y.toFixed(0)} q3 ${(l / 2).toFixed(0)} 0 ${l.toFixed(0)}" stroke="rgba(255,255,255,.45)" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+    }
+    let persiana = '';
+    for (let y = 8; y < 70; y += 9) persiana += `<rect x="0" y="${y}" width="${w}" height="5" fill="#6A615B"/><rect x="0" y="${y + 5}" width="${w}" height="3" fill="#2C2624"/>`;
+    let barras = '';
+    for (let i = 0; i < 14; i++) barras += `<rect x="${84 + i * 32}" y="262" width="5" height="96" fill="#8F9A9E" opacity=".7"/>`;
+    let pasto = '';
+    for (let i = 0; i < 16; i++) pasto += `<path d="M${(196 + i * 4.2).toFixed(1)} 342 q${(R() * 10 - 5).toFixed(1)} -14 ${(R() * 14 - 7).toFixed(1)} -24" stroke="#8C9C62" stroke-width="2.4" fill="none" stroke-linecap="round"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="vidrioA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4E8E8"/><stop offset="1" stop-color="#A9B5B9"/></linearGradient>
+        <radialGradient id="luzA" cx=".38" cy=".62" r=".35"><stop offset="0" stop-color="#FFE7A8" stop-opacity=".75"/><stop offset="1" stop-color="#FFE7A8" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="${w}" height="${h}" fill="#2B2625"/>
+      <rect x="64" y="64" width="464" height="302" fill="#4A423E"/>
+      <rect x="76" y="76" width="440" height="282" fill="url(#vidrioA)"/>
+      <rect x="76" y="76" width="440" height="282" fill="url(#luzA)"/>
+      <rect x="418" y="150" width="46" height="120" fill="#C7CCC9" opacity=".5"/>
+      <circle cx="505" cy="226" r="6" fill="#FFD98A"/>
+      ${barras}
+      <rect x="84" y="258" width="440" height="6" fill="#8F9A9E" opacity=".8"/>
+      ${chorros}${gotas}
+      <rect x="76" y="136" width="440" height="9" fill="#5B534E"/>
+      <rect x="0" y="0" width="${w}" height="72" fill="#1F1B1A"/>${persiana}
+      <rect x="0" y="66" width="${w}" height="8" fill="#3A3330"/>
+      <path d="M0 0 H70 Q 82 160 58 330 L 40 470 H0 Z" fill="#3B3335"/>
+      <path d="M18 0 Q 30 200 14 470 M44 0 Q 58 220 36 470" stroke="#2A2325" stroke-width="5" fill="none" opacity=".7"/>
+      <path d="M${w} 0 H${w - 62} Q ${w - 74} 170 ${w - 50} 360 L ${w - 40} 470 H${w} Z" fill="#3B3335"/>
+      <path d="M${w - 18} 0 Q ${w - 30} 200 ${w - 14} 470" stroke="#2A2325" stroke-width="5" fill="none" opacity=".7"/>
+      <rect x="40" y="356" width="${w - 80}" height="40" rx="3" fill="#3A322F"/>
+      <rect x="0" y="394" width="${w}" height="76" fill="#24201F"/>
+      <rect x="60" y="412" width="${w - 120}" height="2" fill="#332D2B"/>
+      <g fill="#161212"><rect x="56" y="326" width="96" height="30" rx="4"/><rect x="66" y="300" width="64" height="28" rx="4"/><rect x="82" y="284" width="30" height="18" rx="3"/></g>
+      <rect x="190" y="340" width="76" height="18" fill="#6B5848"/>${pasto}
+      <rect x="276" y="326" width="236" height="34" rx="16" fill="#463F3E"/>
+      <g fill="#120E0E">
+        <path d="M346 272 C 336 300 342 332 372 332 L 484 332 C 500 296 486 236 446 232 C 414 230 384 248 362 272 Z"/>
+        <ellipse cx="353" cy="258" rx="25" ry="22"/>
+        <polygon points="334,248 337,220 354,240"/><polygon points="360,238 377,222 380,250"/>
+        <path d="M498 326 C 524 322 530 300 516 292" stroke="#120E0E" stroke-width="11" fill="none" stroke-linecap="round"/>
+      </g>
+      <circle cx="300" cy="372" r="0" fill="none"/>
+    </svg>`;
+  },
+
+  // Volantín con la bandera sobre los cerros, con copihues (diseño propio)
+  cometa: (w, h, seed) => {
+    const R = rng(seed * 23 + 1);
+    let nubes = '';
+    for (let i = 0; i < 16; i++) nubes += nubeCl(R() * w - 20, 20 + R() * 250, 0.5 + R() * 0.7, (0.55 + R() * 0.35).toFixed(2));
+    let lazos = '';
+    [[2, 148], [14, 186], [-6, 224], [10, 262]].forEach((p, i) => { lazos += `<polygon points="${p[0]},${p[1]} ${p[0] - 11},${p[1] - 7} ${p[0] - 11},${p[1] + 7}" fill="${['#D52B1E', '#FFFFFF', '#1F4FA3', '#D52B1E'][i]}"/><polygon points="${p[0]},${p[1]} ${p[0] + 11},${p[1] - 7} ${p[0] + 11},${p[1] + 7}" fill="${['#D52B1E', '#FFFFFF', '#1F4FA3', '#D52B1E'][i]}"/>`; });
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="cieloS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA6DE"/><stop offset="1" stop-color="#C9DFF3"/></linearGradient>
+        <clipPath id="cometaClip"><polygon points="0,-120 92,-10 0,132 -92,-10"/></clipPath>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloS)"/>
+      ${nubes}
+      <path d="M230 352 L 420 306 Q 520 282 592 292 V 360 H 230 Z" fill="#6F9488"/>
+      <path d="M0 350 Q 120 316 236 346 T 440 336 Q 520 322 592 346 V470 H0Z" fill="#7FA48A"/>
+      <path d="M0 392 Q 160 362 310 396 T 592 384 V470 H0Z" fill="#8BB35E"/>
+      <path d="M340 470 Q 400 424 592 414 V470 Z" fill="#B58A62"/>
+      <path d="M275 376 Q 170 420 70 462" stroke="rgba(255,255,255,.8)" stroke-width="1.6" fill="none"/>
+      <g transform="translate(250 262) rotate(-14) scale(0.88)">
+        <path d="M0 132 C 22 160 -22 180 0 210 S 22 262 -6 306" stroke="#F2EFE6" stroke-width="2.2" fill="none"/>${lazos}
+        <g clip-path="url(#cometaClip)"><g transform="translate(-92 -120)">${banderaCl(184, 252)}</g></g>
+        <polygon points="0,-120 92,-10 0,132 -92,-10" fill="none" stroke="#F4F0E6" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M0 -120 V132 M-92 -10 H92" stroke="#EFE9DA" stroke-width="2.2" opacity=".85"/>
+      </g>
+      <path d="M${w} 0 Q ${w - 70} 10 ${w - 120} 78 Q ${w - 140} 108 ${w - 168} 120" stroke="#5E4A38" stroke-width="4" fill="none" stroke-linecap="round"/>
+      ${hojaCl(w - 116, 74, 1, 30)}${hojaCl(w - 160, 118, 0.9, 150)}${hojaCl(w - 60, 16, 0.8, 70)}
+      ${copihueCl(w - 92, 84, 1.05, 6)}${copihueCl(w - 156, 122, 0.95, -10)}
+    </svg>`;
+  },
+
+  banderines: (w, h, seed) => {
+    const R = rng(seed * 29 + 2);
+    let nubes = '';
+    for (let i = 0; i < 18; i++) nubes += nubeCl(R() * w - 20, 10 + R() * 300, 0.45 + R() * 0.6, (0.5 + R() * 0.4).toFixed(2));
+    let lineas = '';
+    for (let l = 0; l < 5; l++) {
+      const y0 = 44 + l * 62 + (l % 2) * 6, sag = 14 + (l % 3) * 4;
+      let d = `M0 ${y0}`;
+      for (let t = 0; t <= 1.001; t += 0.05) d += ` L${(t * w).toFixed(1)} ${(y0 + 4 * t * (1 - t) * sag).toFixed(1)}`;
+      lineas += `<path d="${d}" stroke="#F4F6F8" stroke-width="1.6" fill="none"/>`;
+      const n = 15 - (l % 2);
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.7) / n, x = t * w, y = y0 + 4 * t * (1 - t) * sag, ang = (i % 2 ? 6 : -6) + (R() * 6 - 3);
+        lineas += `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(1)}) translate(-13 0)">${banderaCl(27, 38)}</g>`;
+      }
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="cieloB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA6DE"/><stop offset="1" stop-color="#BFD8F0"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloB)"/>
+      ${nubes}${lineas}
+    </svg>`;
+  },
+
+  // Cerezo en flor con pétalos cayendo (diseño propio)
+  cerezo: (w, h, seed) => {
+    const R = rng(seed * 31 + 3);
+    const cols = ['#F7C3CF', '#FADBE3', '#F2A9BC', '#FFF0F3', '#F5B5C6'];
+    let flores = '';
+    for (let i = 0; i < 150; i++) {
+      const a = R() * Math.PI * 2, d = Math.sqrt(R());
+      const x = 330 + Math.cos(a) * d * 290, y = 150 + Math.sin(a) * d * 125;
+      flores += florCerezo(x, y, 9 + R() * 11, R() * 72, cols[Math.floor(R() * cols.length)]);
+    }
+    let cayendo = '';
+    for (let i = 0; i < 42; i++) cayendo += petaloCerezo(R() * w, 150 + R() * 280, 0.8 + R() * 0.9, R() * 360, cols[Math.floor(R() * 3)]);
+    let suelo = '';
+    for (let i = 0; i < 60; i++) suelo += petaloCerezo(R() * w, 424 + R() * 40, 0.8 + R() * 0.7, R() * 360, cols[Math.floor(R() * 4)]);
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="cieloC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F9DDD8"/><stop offset=".6" stop-color="#EBDDF1"/><stop offset="1" stop-color="#F6E9E4"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloC)"/>
+      <circle cx="120" cy="120" r="60" fill="#FFF3D6" opacity=".7"/>
+      <path d="M0 360 Q 140 316 280 350 T 592 336 V470 H0Z" fill="#D9CDE8"/>
+      <path d="M0 396 Q 180 362 340 394 T 592 384 V470 H0Z" fill="#A9C79A"/>
+      <path d="M0 430 Q 200 408 400 432 T 592 426 V470 H0Z" fill="#8DB87E"/>
+      <path d="M452 470 C 440 400 424 330 408 252 L 436 252 C 450 330 470 410 486 470 Z" fill="#6B4A3E"/>
+      <g stroke="#6B4A3E" stroke-linecap="round" fill="none"><path d="M418 300 Q 330 250 190 206" stroke-width="12"/><path d="M424 280 Q 480 224 568 186" stroke-width="11"/><path d="M416 256 Q 372 196 306 128" stroke-width="10"/><path d="M370 232 Q 300 220 250 150" stroke-width="6"/></g>
+      ${flores}${cayendo}${suelo}
+    </svg>`;
+  },
+
+  petalosAncha: (w, h, seed) => {
+    const R = rng(seed * 37 + 5);
+    const cols = ['#F7C3CF', '#FADBE3', '#F2A9BC', '#FFF0F3', '#F5B5C6'];
+    let rama = '', flores = '';
+    const pts = [];
+    for (let t = 0; t <= 1.001; t += 0.04) pts.push([t * (w + 20) - 10, 44 + Math.sin(t * 3.2) * 22 + t * 40]);
+    rama = `<path d="M${pts.map((p) => p[0].toFixed(0) + ' ' + p[1].toFixed(0)).join(' L')}" stroke="#6B4A3E" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    pts.forEach((p, i) => {
+      for (let k = 0; k < 4; k++) flores += florCerezo(p[0] + (R() * 50 - 25), p[1] + R() * 70 - 10, 11 + R() * 12, R() * 72, cols[Math.floor(R() * cols.length)]);
+      if (i % 3 === 0) flores += `<path d="M${p[0].toFixed(0)} ${p[1].toFixed(0)} q ${(R() * 14 - 7).toFixed(0)} 40 ${(R() * 20 - 10).toFixed(0)} ${(40 + R() * 40).toFixed(0)}" stroke="#6B4A3E" stroke-width="2" fill="none"/>`;
+    });
+    let cay = '';
+    for (let i = 0; i < 70; i++) cay += petaloCerezo(R() * w, 90 + R() * 250, 0.8 + R() * 1.0, R() * 360, cols[Math.floor(R() * 3)]);
+    let bok = '';
+    for (let i = 0; i < 10; i++) bok += `<circle cx="${(R() * w).toFixed(0)}" cy="${(120 + R() * 200).toFixed(0)}" r="${(10 + R() * 22).toFixed(0)}" fill="#fff" opacity=".22"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="cieloP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F9DDD8"/><stop offset=".6" stop-color="#EBDDF1"/><stop offset="1" stop-color="#F6E9E4"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloP)"/>
+      ${bok}
+      <defs>
+        <linearGradient id="andesA" gradientUnits="userSpaceOnUse" x1="0" y1="140" x2="0" y2="310"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".3" stop-color="#F6F3FB"/><stop offset=".62" stop-color="#C3C0DE"/><stop offset="1" stop-color="#AEACD0"/></linearGradient>
+        <linearGradient id="andesB" gradientUnits="userSpaceOnUse" x1="0" y1="228" x2="0" y2="320"><stop offset="0" stop-color="#F2EEF8"/><stop offset=".4" stop-color="#B9B5D6"/><stop offset="1" stop-color="#9C9AC2"/></linearGradient>
+      </defs>
+      <polygon points="0,345 0,312 50,236 92,262 150,176 205,240 250,206 312,150 372,222 420,190 478,238 540,164 596,226 650,184 700,214 700,345 0,345" fill="url(#andesA)"/>
+      <path d="M150 176 L 168 232 M312 150 L 296 214 M540 164 L 552 226 M420 190 L 430 240" stroke="#9D9ACB" stroke-width="3" opacity=".45" fill="none"/>
+      <polygon points="0,345 0,326 70,268 130,296 220,238 300,284 392,250 462,292 556,244 636,286 700,262 700,345 0,345" fill="url(#andesB)"/>
+      <path d="M0 330 Q 200 304 400 328 T 700 320 V352 H0Z" fill="#A9C79A"/>
+      ${rama}${flores}${cay}
+    </svg>`;
+  },
+
+  // Hortensias rosadas y azules entre la neblina (diseño propio)
+  hortensias: (w, h, seed) => {
+    const R = rng(seed * 41 + 3);
+    const verdes = ['#3F6B3A', '#2F5A33', '#4F7E3F', '#356440'];
+    const hoja = (x, y, s, rot) => hojaHo(x, y, s, rot, verdes[Math.floor(R() * verdes.length)]);
+    let medio = '';
+    [[40, 262, 34, PAL_ROSA], [120, 286, 40, PAL_AZUL], [196, 250, 30, PAL_ROSA], [262, 276, 36, PAL_LILA], [330, 246, 30, PAL_ROSA]].forEach((d, i) => { medio += hortensiaCl(d[0], d[1], d[2], seed + i, d[3]); });
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="cieloH" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D8DADF"/><stop offset=".55" stop-color="#E9E4E4"/><stop offset="1" stop-color="#F1D9D2"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloH)"/>
+      <path d="M0 210 Q 90 190 180 214 T 330 208 V300 H0Z" fill="#B3BFB8"/>
+      <path d="M150 230 Q 200 150 250 232 Z M240 240 Q 300 130 350 236 Z" fill="#6E8A66"/>
+      <path d="M0 250 Q 150 224 300 252 T 592 236 V470 H0Z" fill="#6A8B5E"/>
+      <path d="M0 300 Q 200 270 400 304 T 592 292 V470 H0Z" fill="#587C52"/>
+      ${medio}
+      ${hoja(300, 330, 1.3, -30)}${hoja(520, 420, 1.5, 200)}${hoja(80, 400, 1.2, -60)}
+      ${hortensiaCl(440, 166, 82, seed + 11, PAL_AZUL)}
+      ${hortensiaCl(572, 52, 58, seed + 12, PAL_LILA)}
+      ${hoja(480, 262, 1.1, 20)}${hoja(560, 300, 1.2, -10)}${hoja(370, 250, 0.9, 150)}
+      ${hortensiaCl(206, 350, 126, seed + 13, PAL_ROSA)}
+      ${hoja(340, 462, 1.1, 200)}${hoja(480, 480, 1.2, 190)}${hoja(580, 400, 1.0, 120)}${hoja(70, 470, 1.0, 250)}${hoja(0, 400, 0.9, -80)}
+    </svg>`;
+  },
+
+  hortensiasAncha: (w, h, seed) => {
+    const R = rng(seed * 47 + 9);
+    const pal = [...PAL_ROSA.slice(0, 3), ...PAL_AZUL.slice(0, 3), ...PAL_LILA.slice(0, 3), '#FFFFFF', '#F8C6DA'];
+    let viento = '';
+    for (let i = 0; i < 7; i++) {
+      const y = 40 + i * 44 + R() * 20, x0 = -20 + R() * 120, l = 260 + R() * 260;
+      viento += `<path d="M${x0.toFixed(0)} ${y.toFixed(0)} C ${(x0 + l * 0.3).toFixed(0)} ${(y - 26).toFixed(0)}, ${(x0 + l * 0.6).toFixed(0)} ${(y + 30).toFixed(0)}, ${(x0 + l).toFixed(0)} ${(y - 10).toFixed(0)}" stroke="rgba(255,255,255,.55)" stroke-width="${(1.5 + R() * 1.5).toFixed(1)}" fill="none" stroke-linecap="round"/>`;
+    }
+    let petalos = '', lejos = '';
+    for (let i = 0; i < 60; i++) {
+      const x = R() * (w + 40) - 20, y = R() * h, c = pal[Math.floor(R() * pal.length)], ang = -18 + R() * 40;
+      const f = 7 + R() * 13;
+      if (R() < 0.45) petalos += floritoHo(x, y, f * 1.5, R() * 360, c);
+      else petalos += `<ellipse transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(0)})" rx="${(f * 0.95).toFixed(1)}" ry="${(f * 0.55).toFixed(1)}" fill="${c}" stroke="rgba(120,60,100,.15)" stroke-width="0.6"/><path transform="translate(${(x - f * 1.6).toFixed(1)} ${y.toFixed(1)}) rotate(${ang.toFixed(0)})" d="M0 0 H${(f * 0.9).toFixed(1)}" stroke="${c}" stroke-width="1.6" opacity=".35" stroke-linecap="round"/>`;
+    }
+    for (let i = 0; i < 26; i++) lejos += floritoHo(R() * w, R() * h, 6 + R() * 6, R() * 360, pal[Math.floor(R() * pal.length)]);
+    let grandes = '';
+    [[90, 250, 62], [620, 70, 70], [380, 300, 54]].forEach((g, i) => { grandes += floritoHo(g[0], g[1], g[2], 20 + i * 70, pal[i * 3 % pal.length]); });
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="cieloHv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EFE2EA"/><stop offset=".55" stop-color="#E2DFEF"/><stop offset="1" stop-color="#D3DDF0"/></linearGradient>
+        <filter id="desenf"><feGaussianBlur stdDeviation="5"/></filter>
+        <filter id="desenf2"><feGaussianBlur stdDeviation="1.6"/></filter>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#cieloHv)"/>
+      <path d="M0 300 Q 150 262 320 292 T 700 274 V352 H0Z" fill="#C9D3E4" opacity=".7"/>
+      <path d="M0 330 Q 200 304 420 326 T 700 318 V352 H0Z" fill="#B9C9C0" opacity=".8"/>
+      ${viento}
+      <g filter="url(#desenf2)" opacity=".75">${lejos}</g>
+      ${petalos}
+      <g filter="url(#desenf)" opacity=".8">${grandes}</g>
+    </svg>`;
+  },
+
+  // Calle de noche con luces y una pascua en su canasto (diseño propio)
+  navidadCalle: (w, h, seed) => {
+    const R = rng(seed * 53 + 7);
+    let guirnaldas = '';
+    for (let g = 0; g < 5; g++) {
+      const y0 = 112 + g * 38 + (g % 2) * 6, sag = 14 + (g % 3) * 4, pend = (g % 2 ? 8 : -6);
+      let d = `M-5 ${y0}`;
+      const yy = (t) => y0 + pend * t + 4 * t * (1 - t) * sag;
+      for (let t = 0; t <= 1.001; t += 0.04) d += ` L${(t * (w + 10) - 5).toFixed(1)} ${yy(t).toFixed(1)}`;
+      guirnaldas += `<path d="${d}" stroke="#6A4630" stroke-width="1.4" fill="none"/>`;
+      const n = 25;
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n, x = t * (w + 10) - 5, y = yy(t); guirnaldas += `<circle cx="${x.toFixed(1)}" cy="${(y + 3).toFixed(1)}" r="11" fill="url(#bulboG)"/><circle cx="${x.toFixed(1)}" cy="${(y + 3).toFixed(1)}" r="3.2" fill="#FFE6A8"/>`; }
+    }
+    let ventanas = '';
+    for (let i = 0; i < 14; i++) ventanas += `<rect x="${i < 7 ? 8 + (i % 3) * 26 : 508 + (i % 3) * 26}" y="${140 + Math.floor((i % 7) / 3) * 56 + R() * 14}" width="14" height="22" fill="#E8A85A" opacity="${(0.35 + R() * 0.4).toFixed(2)}"/>`;
+    let bokeh = '';
+    for (let i = 0; i < 22; i++) bokeh += `<circle cx="${(150 + R() * 300).toFixed(0)}" cy="${(250 + R() * 80).toFixed(0)}" r="${(6 + R() * 12).toFixed(0)}" fill="#FFC878" opacity="${(0.25 + R() * 0.35).toFixed(2)}"/>`;
+    let gente = '';
+    [[210, 330], [244, 336], [284, 328], [330, 334], [372, 330]].forEach((p) => { gente += `<ellipse cx="${p[0]}" cy="${p[1] - 26}" rx="7" ry="8" fill="#150E0C"/><rect x="${p[0] - 10}" y="${p[1] - 18}" width="20" height="44" rx="8" fill="#150E0C"/>`; });
+    let piedras = '';
+    for (let i = 0; i < 46; i++) piedras += `<rect x="${(R() * w).toFixed(0)}" y="${(350 + R() * 118).toFixed(0)}" width="${(28 + R() * 34).toFixed(0)}" height="${(14 + R() * 14).toFixed(0)}" rx="5" fill="rgba(255,200,140,${(0.04 + R() * 0.08).toFixed(2)})" stroke="rgba(0,0,0,.35)" stroke-width="1.2"/>`;
+    let canasta = '';
+    for (let i = 0; i < 12; i++) canasta += `<line x1="${372 + i * 10}" y1="378" x2="${380 + i * 8}" y2="468" stroke="#B8924F" stroke-width="2"/>`;
+    for (let i = 0; i < 6; i++) canasta += `<path d="M370 ${390 + i * 14} Q 430 ${398 + i * 14} 490 ${390 + i * 14}" stroke="#B8924F" stroke-width="2" fill="none"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="nocheD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0D0A12"/><stop offset=".6" stop-color="#1D130F"/><stop offset="1" stop-color="#2B1B12"/></linearGradient>
+        <radialGradient id="bulboG"><stop offset="0" stop-color="#FFD98A" stop-opacity=".75"/><stop offset="1" stop-color="#FFD98A" stop-opacity="0"/></radialGradient>
+        <filter id="desenfD"><feGaussianBlur stdDeviation="4"/></filter>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#nocheD)"/>
+      <polygon points="0,30 96,60 96,350 0,350" fill="#1A1210"/><polygon points="${w},70 ${w - 88},100 ${w - 88},350 ${w},350" fill="#1C1411"/>
+      ${ventanas}
+      <g filter="url(#desenfD)">${bokeh}<circle cx="${w - 86}" cy="250" r="26" fill="#FFD28A" opacity=".8"/></g>
+      ${gente}
+      <rect y="344" width="${w}" height="${h - 344}" fill="#22160F"/>
+      <ellipse cx="300" cy="360" rx="260" ry="30" fill="#FFB860" opacity=".12"/>
+      ${piedras}
+      ${guirnaldas}
+      <circle cx="331" cy="360" r="130" fill="url(#bulboG)" opacity=".5"/>
+      <path d="M300 448 L 362 448 L 356 470 L 306 470 Z" fill="#8E2A32"/><rect x="298" y="444" width="66" height="8" rx="3" fill="#D9B24A"/>
+      ${[[262, 320, 44], [290, 366, 62], [326, 412, 80], [368, 452, 98]].map((t) => `<path d="M${331 - t[2]} ${t[1]} Q 331 ${t[1] + 12} ${331 + t[2]} ${t[1]} L 331 ${t[0]} Z" fill="#1F4A32"/><path d="M331 ${t[0]} L ${331 + t[2]} ${t[1]} Q 331 ${t[1] + 12} 331 ${t[1] + 6} Z" fill="#2D6A45" opacity=".75"/>`).join('')}
+      ${[[318, 292], [348, 300], [300, 340], [364, 346], [276, 392], [386, 396], [318, 430], [352, 436]].map((b, i) => `<circle cx="${b[0]}" cy="${b[1]}" r="9" fill="url(#bulboG)"/><circle cx="${b[0]}" cy="${b[1]}" r="2.6" fill="#FFE6A8"/>`).join('')}
+      ${pascuaCl(331, 304, 15, 10)}${pascuaCl(316, 342, 18, 25)}${pascuaCl(352, 350, 18, 0)}${pascuaCl(292, 394, 21, 15)}${pascuaCl(331, 388, 20, 30)}${pascuaCl(372, 400, 21, 5)}${pascuaCl(300, 436, 22, 20)}${pascuaCl(344, 432, 22, 35)}
+      <circle cx="331" cy="258" r="26" fill="url(#bulboG)"/>${estrellaCl(331, 258, 14, '#FFD54A')}
+    </svg>`;
+  },
+
+  luces: (w, h, seed) => {
+    const R = rng(seed * 59 + 4);
+    let velas = '';
+    const cols = ['#D93A3A', '#3E8F5A', '#F2ECDD', '#D93A3A', '#F2ECDD', '#3E8F5A'];
+    const lista = [];
+    for (let i = 0; i < 7; i++) lista.push([70 + i * ((w - 140) / 6) + (R() * 24 - 12), 240 + R() * 80, 50 + R() * 34, cols[i % cols.length]]);
+    lista.sort((a, b) => a[1] - b[1]);
+    lista.forEach((c) => {
+      const [x, y, al, col] = c;
+      velas += `<circle cx="${x.toFixed(1)}" cy="${(y - al - 6).toFixed(1)}" r="30" fill="url(#bulboW)"/><ellipse cx="${x.toFixed(1)}" cy="${(y + 22).toFixed(1)}" rx="16" ry="5" fill="rgba(0,0,0,.28)"/><rect x="${(x - 6).toFixed(1)}" y="${(y - al).toFixed(1)}" width="12" height="${al}" rx="3" fill="${col}"/><rect x="${(x - 6).toFixed(1)}" y="${(y - al).toFixed(1)}" width="4" height="${al}" fill="rgba(255,255,255,.25)"/><path d="M${x.toFixed(1)} ${(y - al - 15).toFixed(1)} C ${(x + 6).toFixed(1)} ${(y - al - 8).toFixed(1)} ${(x + 5).toFixed(1)} ${(y - al).toFixed(1)} ${x.toFixed(1)} ${(y - al).toFixed(1)} C ${(x - 5).toFixed(1)} ${(y - al).toFixed(1)} ${(x - 6).toFixed(1)} ${(y - al - 8).toFixed(1)} ${x.toFixed(1)} ${(y - al - 15).toFixed(1)} Z" fill="#FFD27A"/><ellipse cx="${x.toFixed(1)}" cy="${(y - al - 5).toFixed(1)}" rx="2" ry="4" fill="#FFF6D0"/>`;
+    });
+    let bokeh = '';
+    for (let i = 0; i < 16; i++) bokeh += `<circle cx="${(R() * w).toFixed(0)}" cy="${(R() * 200).toFixed(0)}" r="${(6 + R() * 14).toFixed(0)}" fill="#FFC878" opacity="${(0.12 + R() * 0.2).toFixed(2)}"/>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="nocheW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E0A10"/><stop offset=".55" stop-color="#1D120F"/><stop offset="1" stop-color="#3A2418"/></linearGradient>
+        <radialGradient id="bulboW"><stop offset="0" stop-color="#FFC060" stop-opacity=".7"/><stop offset="1" stop-color="#FFC060" stop-opacity="0"/></radialGradient>
+        <filter id="desenfW"><feGaussianBlur stdDeviation="5"/></filter>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#nocheW)"/>
+      <g filter="url(#desenfW)">${bokeh}</g>
+      <polygon points="0,250 700,214 700,352 0,352" fill="#6B4838" opacity=".85"/>
+      <polygon points="0,250 700,214 700,226 0,262" fill="#8A6050" opacity=".5"/>
+      ${velas}
+      <line x1="130" y1="190" x2="190" y2="124" stroke="#8A7A6A" stroke-width="2.2"/><line x1="520" y1="140" x2="470" y2="80" stroke="#8A7A6A" stroke-width="2.2"/><line x1="620" y1="170" x2="580" y2="206" stroke="#8A7A6A" stroke-width="2.2"/>
+      ${chispaCl(196, 118, 62, seed + 1, 'bulboW')}${chispaCl(468, 74, 78, seed + 2, 'bulboW')}${chispaCl(580, 150, 48, seed + 3, 'bulboW')}${chispaCl(330, 150, 34, seed + 4, 'bulboW')}
+    </svg>`;
+  },
+
+  // Pascuas en la penumbra con luces desenfocadas (diseño propio)
+  navidadEtereo: (w, h, seed) => {
+    const R = rng(seed * 61 + 5);
+    let bokeh = '';
+    for (let i = 0; i < 26; i++) { const c = R() < 0.8 ? '#FFC878' : '#F2A0B0'; bokeh += `<circle cx="${(R() * w).toFixed(0)}" cy="${(R() * 300).toFixed(0)}" r="${(8 + R() * 26).toFixed(0)}" fill="${c}" opacity="${(0.12 + R() * 0.28).toFixed(2)}"/>`; }
+    let bulbos = '';
+    const yy = (t) => 150 - 38 * t + 4 * t * (1 - t) * 30;
+    let d = 'M-5 150';
+    for (let t = 0; t <= 1.001; t += 0.04) d += ` L${(t * (w + 10) - 5).toFixed(1)} ${yy(t).toFixed(1)}`;
+    for (let i = 0; i < 17; i++) { const t = (i + 0.5) / 17, x = t * (w + 10) - 5, y = yy(t) + 3; bulbos += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="url(#bulboE)"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.8" fill="#FFE9B8"/>`; }
+    let chispas = '';
+    for (let i = 0; i < 22; i++) {
+      const x = R() * w, y = R() * 330, r = 2.5 + R() * 5;
+      chispas += `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" d="M0 ${-r * 2} Q ${r * 0.25} ${-r * 0.25} ${r * 2} 0 Q ${r * 0.25} ${r * 0.25} 0 ${r * 2} Q ${-r * 0.25} ${r * 0.25} ${-r * 2} 0 Q ${-r * 0.25} ${-r * 0.25} 0 ${-r * 2} Z" fill="#FFE7A8" opacity="${(0.45 + R() * 0.5).toFixed(2)}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="nocheE" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#120B16"/><stop offset=".6" stop-color="#25111C"/><stop offset="1" stop-color="#3A1722"/></linearGradient>
+        <radialGradient id="bulboE"><stop offset="0" stop-color="#FFD98A" stop-opacity=".8"/><stop offset="1" stop-color="#FFD98A" stop-opacity="0"/></radialGradient>
+        <radialGradient id="luzE" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFB890" stop-opacity=".55"/><stop offset="1" stop-color="#FFB890" stop-opacity="0"/></radialGradient>
+        <filter id="blurE"><feGaussianBlur stdDeviation="6"/></filter>
+        <filter id="blurE2"><feGaussianBlur stdDeviation="2.2"/></filter>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#nocheE)"/>
+      <g filter="url(#blurE)">${bokeh}</g>
+      <path d="${d}" stroke="rgba(255,225,170,.35)" stroke-width="1.2" fill="none"/>${bulbos}
+      <circle cx="330" cy="330" r="230" fill="url(#luzE)"/>
+      <g filter="url(#blurE2)" opacity=".9"><ellipse cx="190" cy="420" rx="120" ry="40" fill="#10261A"/><ellipse cx="470" cy="440" rx="110" ry="36" fill="#10261A"/></g>
+      <g fill="#183423"><ellipse cx="250" cy="400" rx="70" ry="22" transform="rotate(-20 250 400)"/><ellipse cx="420" cy="410" rx="68" ry="22" transform="rotate(18 420 410)"/><ellipse cx="330" cy="440" rx="80" ry="24"/></g>
+      ${pascuaCl(330, 330, 128, 12)}
+      ${pascuaCl(488, 398, 66, 30)}
+      <circle cx="330" cy="330" r="150" fill="url(#luzE)" opacity=".5"/>
+      <g filter="url(#blurE)" opacity=".75">${pascuaCl(36, 456, 120, 5)}</g>
+      ${chispas}
+    </svg>`;
+  },
+
+  // Tendedero con una tarjeta para mamá, flores colgando y el ramo de abajo (diseño propio)
+  tendedero: (w, h, seed) => {
+    const pinza = (x, y, rot) => `<g transform="translate(${x} ${y}) rotate(${rot})">
+      <rect x="-9" y="-38" width="18" height="78" rx="4" fill="#E2B987"/>
+      <rect x="-9" y="-38" width="7" height="78" rx="3" fill="rgba(255,255,255,.2)"/>
+      <line x1="0" y1="-6" x2="0" y2="40" stroke="#B98A57" stroke-width="2"/>
+      <ellipse cx="0" cy="-8" rx="11" ry="5" fill="none" stroke="#5A5A5A" stroke-width="3"/>
+    </g>`;
+    const rosa = (x, y, r) => {
+      let petalos = '';
+      for (let i = 0; i < 6; i++) {
+        petalos += `<ellipse cx="0" cy="${-r * 0.5}" rx="${r * 0.5}" ry="${r * 0.42}" transform="rotate(${i * 60})" fill="#F2A9BF" stroke="#D9708F" stroke-width="1.5"/>`;
+      }
+      return `<g transform="translate(${x} ${y})">
+        <circle r="${r}" fill="#E58AA8"/>${petalos}
+        <circle r="${r * 0.52}" fill="#EE98B2" stroke="#D9708F" stroke-width="1.5"/>
+        <path d="M0 0 q ${r * 0.12} ${-r * 0.12} ${r * 0.22} 0 q 0 ${r * 0.28} ${-r * 0.3} ${r * 0.28} q ${-r * 0.4} 0 ${-r * 0.4} ${-r * 0.4} q 0 ${-r * 0.5} ${r * 0.5} ${-r * 0.5}" fill="none" stroke="#C85F80" stroke-width="2.2" stroke-linecap="round"/>
+      </g>`;
+    };
+    const ramo = `${espiga(130, 470, -8, 250)}${espiga(188, 470, 10, 200)}
+      ${ramita(62, 470, -15, 190, '#E8789A', '#F7C8D6')}${ramita(112, 470, 6, 165, '#E8789A', '#F7C8D6')}${ramita(26, 470, -32, 140, '#E8789A', '#F7C8D6')}
+      ${tulipan(44, 470, 1, '#F2B6C6', 120)}${tulipan(98, 470, 0.9, '#F7C8D6', 88)}`;
+    const R = rng(seed * 5 + 2);
+    let petalos = '';
+    for (let i = 0; i < 9; i++) {
+      const x = 458 + R() * 128, y = 330 + R() * 130;
+      petalos += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(R() * 360)})" opacity="0.85">${FORMAS.flor(7 + R() * 7, ['#F7C8D6', '#E4D6F2', '#F2B6C6'][i % 3])}</g>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="tendFondo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EBD9D2"/><stop offset="1" stop-color="#E0C9BF"/></linearGradient>
+        <filter id="tendSombra" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="3" dy="5" stdDeviation="4" flood-color="#5A3A30" flood-opacity="0.25"/></filter>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#tendFondo)"/>
+      <path d="M0 152 Q 296 170 592 140" fill="none" stroke="#A98B63" stroke-width="3.5"/>
+      <path d="M0 152 Q 296 170 592 140" fill="none" stroke="#D9C09A" stroke-width="1.5" stroke-dasharray="3 5"/>
+      <g transform="translate(70 152) rotate(185)">${tulipan(0, 0, 1, '#E58AA8', 82)}</g>
+      <path d="M540 146 C 542 180 552 200 552 232" fill="none" stroke="#6E9150" stroke-width="6" stroke-linecap="round"/>
+      ${rosa(552, 262, 44)}
+      <g transform="translate(350 170) rotate(6)" filter="url(#tendSombra)">
+        <rect x="-95" y="0" width="190" height="270" fill="#FBF1F1"/>
+      </g>
+      <g transform="translate(350 170) rotate(6)">
+        <text x="0" y="74" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="19" letter-spacing="4" fill="#B9607C">PARA MAMÁ</text>
+        <text x="0" y="110" text-anchor="middle" font-family="Caveat, cursive" font-size="38" fill="#B9607C">con amor</text>
+        <rect x="-76" y="130" width="152" height="84" fill="none" stroke="#D9A3B5" stroke-width="1.5"/>
+        <text x="-10" y="182" text-anchor="middle" font-family="Caveat, cursive" font-size="32" fill="#3A2A30">te quiero</text>
+        <g transform="translate(60 172)">${FORMAS.corazon(10, '#3A2A30')}</g>
+        <g fill="#E58AA8"><circle cx="-26" cy="238" r="6"/><circle cx="0" cy="238" r="6" fill="#C9A7DC"/><circle cx="26" cy="238" r="6" fill="#F2B6C6"/></g>
+      </g>
+      ${pinza(62, 154, -28)}${pinza(350, 164, -2)}${pinza(540, 148, 10)}
+      ${petalos}
+      <g transform="translate(0 470) scale(0.84) translate(0 -470)">${ramo}</g>
+    </svg>`;
+  },
+
+  ramo: (w, h, seed) => {
+    let flores = '';
+    const colores = ['#F2B6C6', '#F7C8D6', '#E58AA8', '#C9A7DC'];
+    [60, 170, 290, 410, 530, 640].forEach((x, i) => {
+      flores += tulipan(x, h + 6, 0.95, colores[i % 4], 90 + (i * 37 % 60));
+    });
+    [115, 235, 355, 475, 590].forEach((x, i) => {
+      flores += i % 2 ? espiga(x, h + 6, (i - 2) * 5, 150 + (i * 23 % 40)) : ramita(x, h + 6, (i - 2) * 6, 130 + (i * 19 % 40), '#E8789A', '#F7C8D6');
+    });
+    const R = rng(seed * 3 + 1);
+    let petalos = '';
+    for (let i = 0; i < 14; i++) {
+      const x = R() * w, y = R() * (h * 0.5), r = 8 + R() * 8;
+      petalos += `<g transform="translate(${x.toFixed(0)} ${y.toFixed(0)}) rotate(${Math.round(R() * 360)})" opacity="0.8">${FORMAS.flor(r, ['#F7C8D6', '#E4D6F2', '#F2B6C6'][i % 3])}</g>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="ramoFondo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7EFEF"/><stop offset="1" stop-color="#E9D8E2"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#ramoFondo)"/>
+      ${petalos}${flores}
+    </svg>`;
+  },
+
+  // Taza de té sobre libros, vela y ventana con lluvia (diseño propio)
+  ventana: (w, h, seed) => {
+    const libro = (x, y, ancho, alto, c) => `<g>
+      <rect x="${x}" y="${y}" width="${ancho}" height="${alto}" rx="5" fill="${c}"/>
+      <rect x="${x}" y="${y + alto - 7}" width="${ancho}" height="7" fill="rgba(0,0,0,.25)"/>
+      <g fill="#D9A441" opacity="0.85"><rect x="${x + 34}" y="${y}" width="4" height="${alto}"/><rect x="${x + 44}" y="${y}" width="4" height="${alto}"/><rect x="${x + ancho - 48}" y="${y}" width="4" height="${alto}"/><rect x="${x + ancho - 38}" y="${y}" width="4" height="${alto}"/></g>
+      <rect x="${x + ancho / 2 - 62}" y="${y + alto / 2 - 13}" width="124" height="26" rx="3" fill="rgba(246,231,204,.82)"/>
+      <path d="M${x + ancho / 2 - 46} ${y + alto / 2 - 4} h92 M${x + ancho / 2 - 32} ${y + alto / 2 + 5} h64" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/>
+    </g>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      ${fondoVentana(w, h, seed)}
+      <rect x="0" y="450" width="${w}" height="${h - 450}" fill="#4A2F20"/>
+      ${libro(30, 392, 532, 58, '#B9783C')}${libro(56, 340, 480, 52, '#2F4F3A')}${libro(86, 292, 420, 48, '#7A2F2F')}
+      ${vela(440, 292, 1)}
+      <g transform="translate(190 292)">
+        <ellipse cx="0" cy="-4" rx="100" ry="13" fill="#E6CFA6"/>
+        <path d="M-74 -112 H74 C74 -48 44 -8 0 -8 C-44 -8 -74 -48 -74 -112 Z" fill="#F6E7CC"/>
+        <path d="M72 -98 C 118 -98 116 -44 64 -38" fill="none" stroke="#F6E7CC" stroke-width="13" stroke-linecap="round"/>
+        <ellipse cx="-44" cy="-62" rx="7" ry="28" fill="#FFFFFF" opacity="0.35"/>
+        <ellipse cx="0" cy="-112" rx="74" ry="14" fill="#E9D6B4"/>
+        <ellipse cx="0" cy="-112" rx="66" ry="10" fill="#7A3E17"/>
+        <g transform="translate(-16 -58) rotate(-20)">${FORMAS.hoja(20, '#C9692B')}</g>
+        <circle cx="22" cy="-70" r="5" fill="#B3282D"/><circle cx="34" cy="-56" r="4" fill="#B3282D"/><circle cx="14" cy="-48" r="3.5" fill="#B3282D"/>
+        <g fill="none" stroke="rgba(255,255,255,.3)" stroke-width="5" stroke-linecap="round"><path d="M-22 -126 q 10 -12 0 -24 t 0 -24"/><path d="M6 -126 q 10 -12 0 -24 t 0 -24"/><path d="M32 -126 q 10 -12 0 -24 t 0 -24"/></g>
+      </g>
+      ${arce(330, 284, 44, -20, '#C97B2C')}${arce(70, 448, 30, 60, '#B3622A')}
+    </svg>`;
+  },
+
+  ventanaAncha: (w, h, seed) => `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      ${fondoVentana(w, h, seed)}
+      <rect x="0" y="298" width="${w}" height="${h - 298}" fill="#4A2F20"/><rect x="0" y="298" width="${w}" height="5" fill="#6B4630"/>
+      ${vela(150, 302, 0.62)}${vela(350, 302, 0.8)}${vela(550, 302, 0.55)}
+      ${arce(250, 328, 22, 30, '#C97B2C')}${arce(462, 330, 26, -40, '#B3622A')}
+    </svg>`,
+
+  // Hojas de otoño caídas sobre el pasto, vistas desde arriba (diseño propio)
+  hojas: (w, h, seed) => {
+    const FORMA = {
+      maple: { mitad: [[0, -1], [0.17, -0.6], [0.55, -0.85], [0.48, -0.4], [0.95, -0.35], [0.62, -0.05], [0.82, 0.28], [0.3, 0.28], [0.28, 0.62], [0, 0.5]], puntas: [[0.55, -0.85], [0.95, -0.35], [0.82, 0.28]], tallo: 0.5 },
+      roble: { mitad: [[0, -1], [0.3, -0.86], [0.22, -0.62], [0.52, -0.5], [0.36, -0.28], [0.64, -0.1], [0.4, 0.1], [0.56, 0.32], [0.28, 0.4], [0.3, 0.64], [0.1, 0.72], [0, 0.9]], puntas: [[0.52, -0.5], [0.64, -0.1], [0.56, 0.32]], tallo: 0.85 }
+    };
+    const par = (p, r) => p[0].toFixed(1) + ',' + p[1].toFixed(1);
+    const hoja = (tipo, r, c, rot, x, y) => {
+      let forma, venas, tallo;
+      if (tipo === 'oval') {
+        forma = `<path d="M0 ${-r} C ${r * 0.75} ${-r * 0.45} ${r * 0.75} ${r * 0.5} 0 ${r * 1.05} C ${-r * 0.75} ${r * 0.5} ${-r * 0.75} ${-r * 0.45} 0 ${-r} Z"/>`;
+        venas = `M0 ${-r * 0.9} L0 ${r} M0 ${-r * 0.2} L${r * 0.42} ${-r * 0.55} M0 ${-r * 0.2} L${-r * 0.42} ${-r * 0.55} M0 ${r * 0.3} L${r * 0.45} ${-r * 0.02} M0 ${r * 0.3} L${-r * 0.45} ${-r * 0.02}`;
+        tallo = r * 1.0;
+      } else {
+        const f = FORMA[tipo];
+        const der = f.mitad.map(p => [p[0] * r, p[1] * r]);
+        const izq = f.mitad.slice(1, -1).reverse().map(p => [-p[0] * r, p[1] * r]);
+        forma = `<polygon points="${[...der, ...izq].map(p => par(p)).join(' ')}" stroke-linejoin="round"/>`;
+        venas = `M0 ${f.tallo * r * 0.9} L0 ${-r * 0.95}`;
+        f.puntas.forEach(p => {
+          venas += ` M0 ${(p[1] * 0.5 + 0.2) * r} L${p[0] * r * 0.88} ${p[1] * r * 0.88} M0 ${(p[1] * 0.5 + 0.2) * r} L${-p[0] * r * 0.88} ${p[1] * r * 0.88}`;
+        });
+        tallo = f.tallo * r;
+      }
+      return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot})">
+        <g fill="rgba(0,0,0,.28)" transform="translate(4 5)">${forma}</g>
+        <line x1="0" y1="${tallo}" x2="0" y2="${tallo + r * 0.5}" stroke="#6A4B2E" stroke-width="${Math.max(2, r * 0.05)}" stroke-linecap="round"/>
+        <g fill="${c}">${forma}</g>
+        <path d="${venas}" stroke="rgba(255,236,170,.6)" stroke-width="${Math.max(1.5, r * 0.035)}" fill="none" stroke-linecap="round"/>
+      </g>`;
+    };
+    const R = rng(seed * 7 + 3);
+    const verdes = ['#5C8038', '#2F4A22', '#7A9B4A', '#456B2B'];
+    let pasto = '';
+    for (let i = 0; i < w * h / 170; i++) {
+      const x = R() * w, y = R() * h, a = (-90 + (R() - 0.5) * 70) * Math.PI / 180, l = 16 + R() * 30;
+      pasto += `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + Math.cos(a) * l).toFixed(0)}" y2="${(y + Math.sin(a) * l).toFixed(0)}" stroke="${verdes[Math.floor(R() * 4)]}"/>`;
+    }
+    const colores = ['#E8742B', '#B3282D', '#E9B93C', '#C9822F', '#7A2E3A', '#D9552B', '#F0C85A'];
+    const tipos = ['maple', 'oval', 'roble', 'maple', 'oval'];
+    const puestas = [];
+    let hojas = '';
+    const n = Math.round(w * h / 17000);
+    for (let i = 0; i < n * 60 && puestas.length < n; i++) {
+      const r = 34 + R() * 32;
+      const x = w * 0.04 + R() * w * 0.92, y = h * 0.04 + R() * h * 0.92;
+      if (puestas.some(p => Math.hypot(p.x - x, p.y - y) < (p.r + r) * 0.9)) continue;
+      puestas.push({ x, y, r });
+      const k = puestas.length;
+      hojas += hoja(tipos[k % tipos.length], r, colores[Math.floor(R() * colores.length)], Math.round(R() * 360), x, y);
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs><linearGradient id="pasto${seed}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A6B30"/><stop offset="1" stop-color="#35502A"/></linearGradient></defs>
+      <rect width="${w}" height="${h}" fill="url(#pasto${seed})"/>
+      <g stroke-width="2" stroke-linecap="round" opacity="0.85">${pasto}</g>
+      ${hojas}
+    </svg>`;
+  },
+
+  // Sello postal con un corazón atravesado por una flecha (diseño propio)
+  sello: (w, h) => {
+    const rosa = '#F1C5CB', ladrillo = '#8E3B45';
+    let perf = '';
+    for (let i = 0; i <= 27; i++) {
+      const x = 22 + i * (548 / 27);
+      perf += `<circle cx="${x.toFixed(1)}" cy="22" r="6.5"/><circle cx="${x.toFixed(1)}" cy="448" r="6.5"/>`;
+    }
+    for (let i = 1; i < 21; i++) {
+      const y = 22 + i * (426 / 21);
+      perf += `<circle cx="22" cy="${y.toFixed(1)}" r="6.5"/><circle cx="570" cy="${y.toFixed(1)}" r="6.5"/>`;
+    }
+    const R = rng(21);
+    let puntos = '';
+    for (let i = 0; i < 40; i++) {
+      const x = 62 + R() * 468, y = 62 + R() * 346;
+      puntos += `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${(1.8 + R() * 1.6).toFixed(1)}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <rect width="${w}" height="${h}" fill="${rosa}"/>
+      <rect x="22" y="22" width="548" height="426" fill="#FFF8F5"/>
+      <g fill="${rosa}">${perf}</g>
+      <rect x="40" y="40" width="512" height="390" fill="none" stroke="#B2505B" stroke-width="2"/>
+      <rect x="52" y="52" width="488" height="366" fill="#EBBFC5"/>
+      <g fill="#FFFFFF" opacity="0.85">${puntos}</g>
+      <g transform="translate(128 150)">${FORMAS.brillo(16, '#FFFFFF')}</g><g transform="translate(468 318)">${FORMAS.brillo(12, '#FFFFFF')}</g><g transform="translate(160 118) ">${FORMAS.brillo(8, '#FFFFFF')}</g>
+      <text x="296" y="100" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="28" letter-spacing="7" fill="${ladrillo}">CORREO DEL AMOR</text>
+      <line x1="150" y1="345" x2="445" y2="128" stroke="#5E2A30" stroke-width="8" stroke-linecap="round"/>
+      <g transform="translate(296 238)">${FORMAS.corazon(112, '#B2505B')}</g>
+      <polygon points="458,118 424,122 440,150" fill="#5E2A30" transform="rotate(8 445 128)"/>
+      <g stroke="#5E2A30" stroke-width="7" stroke-linecap="round" fill="none"><path d="M150 345 L128 340 M150 345 L142 366"/><path d="M168 332 L146 327 M168 332 L160 353"/></g>
+      <text x="84" y="398" font-family="Caveat, cursive" font-size="46" fill="${ladrillo}">con mucho amor</text>
+      <text x="508" y="396" text-anchor="end" font-family="Nunito, sans-serif" font-weight="800" font-size="30" fill="${ladrillo}">14 · 02</text>
+    </svg>`;
+  },
+
+  gatos: (w, h) => {
+    const gato = (x, y, s, cuerpo, pecho, ojos) => `<g transform="translate(${x} ${y}) scale(${s})">
+      <path d="M30 -8 C 78 -6 78 -64 56 -78" fill="none" stroke="${cuerpo}" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="0" cy="-48" rx="38" ry="50" fill="${cuerpo}"/>
+      <ellipse cx="0" cy="-34" rx="20" ry="32" fill="${pecho}"/>
+      <circle cx="0" cy="-112" r="30" fill="${cuerpo}"/>
+      <polygon points="-28,-122 -26,-152 -6,-134" fill="${cuerpo}"/><polygon points="28,-122 26,-152 6,-134" fill="${cuerpo}"/>
+      <polygon points="-24,-128 -23,-144 -13,-135" fill="#E9A9B0"/><polygon points="24,-128 23,-144 13,-135" fill="#E9A9B0"/>
+      <ellipse cx="-11" cy="-114" rx="4" ry="6" fill="${ojos}"/><ellipse cx="11" cy="-114" rx="4" ry="6" fill="${ojos}"/>
+      <path d="M-4 -103 h8 l-4 5 Z" fill="#E9A0A8"/>
+      <g stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round"><line x1="-14" y1="-99" x2="-34" y2="-103"/><line x1="-14" y1="-95" x2="-34" y2="-93"/><line x1="14" y1="-99" x2="34" y2="-103"/><line x1="14" y1="-95" x2="34" y2="-93"/></g>
+      <ellipse cx="-15" cy="-4" rx="13" ry="8" fill="${pecho}"/><ellipse cx="15" cy="-4" rx="13" ry="8" fill="${pecho}"/>
+    </g>`;
+    const R = rng(80);
+    let lluvia = '';
+    for (let i = 0; i < 110; i++) {
+      const x = R() * (w + 40), y = R() * h;
+      if (x > 120 && x < 470 && y > 140) continue; // zona seca bajo el paraguas
+      lluvia += `<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x - 8).toFixed(0)}" y2="${(y + 26).toFixed(0)}"/>`;
+    }
+    return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="position:absolute;left:0;top:0;display:block">
+      <defs>
+        <linearGradient id="gatosCielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8DA5AE"/><stop offset="1" stop-color="#CBDADC"/></linearGradient>
+        <radialGradient id="gatosLuz"><stop offset="0" stop-color="#FFE9A8" stop-opacity="0.7"/><stop offset="1" stop-color="#FFE9A8" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="${w}" height="${h}" fill="url(#gatosCielo)"/>
+      <path d="M0 330 Q 110 280 240 322 T 480 312 T 592 318 V410 H0 Z" fill="#7E9B94"/>
+      <path d="M0 360 Q 160 330 330 358 T 592 348 V420 H0 Z" fill="#6C8B84"/>
+      <path d="M0 392 Q 300 378 592 396 V470 H0 Z" fill="#55726D"/>
+      <ellipse cx="300" cy="446" rx="200" ry="16" fill="#9DBBBE" opacity="0.55"/>
+      <circle cx="520" cy="186" r="95" fill="url(#gatosLuz)"/>
+      <line x1="520" y1="194" x2="520" y2="404" stroke="#33423F" stroke-width="9" stroke-linecap="round"/>
+      <path d="M504 194 h32 l-7 -18 h-18 z" fill="#33423F"/><circle cx="520" cy="186" r="9" fill="#FFF2C4"/>
+      <line x1="290" y1="270" x2="290" y2="430" stroke="#5B4636" stroke-width="7" stroke-linecap="round"/>
+      ${gato(232, 434, 0.88, '#3F4A52', '#E7E1D6', '#F2D45C')}
+      ${gato(352, 438, 0.8, '#E39B55', '#F6E3C6', '#5C7F3A')}
+      <path d="M130 270 C130 195 200 150 290 150 C380 150 450 195 450 270 Q 410 246 370 270 Q 330 246 290 270 Q 250 246 210 270 Q 170 246 130 270 Z" fill="#E9B44C"/>
+      <g stroke="rgba(0,0,0,.16)" stroke-width="2" fill="none"><path d="M290 150 L130 270"/><path d="M290 150 L210 270"/><path d="M290 150 L290 270"/><path d="M290 150 L370 270"/><path d="M290 150 L450 270"/></g>
+      <circle cx="290" cy="146" r="6" fill="#5B4636"/>
+      <g stroke="rgba(255,255,255,.55)" stroke-width="2" stroke-linecap="round">${lluvia}</g>
+      <g fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2"><ellipse cx="90" cy="440" rx="26" ry="6"/><ellipse cx="90" cy="440" rx="14" ry="3"/><ellipse cx="510" cy="432" rx="30" ry="7"/><ellipse cx="510" cy="432" rx="16" ry="3.5"/></g>
+      <g transform="translate(36 448) rotate(-30)">${FORMAS.hoja(24, '#7FA48A')}</g><g transform="translate(72 456) rotate(40)">${FORMAS.hoja(20, '#6F9478')}</g>
+    </svg>`;
+  }
+};
+
+// Un espacio para imagen: tu foto si existe en imagenes/MM/, si no una ilustración del tema
+function espacioImagen(x, y, w, h, indice, seed, conFrase) {
+  const img = D.imagenes[indice];
+  const contenido = img
+    ? `<img src="${img}" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:block">`
+    : (ESCENAS[conFrase ? T.escena : T.escenaAncha] ? ESCENAS[conFrase ? T.escena : T.escenaAncha](w, h, seed) : escena(w, h, seed));
+  const posFrase = T.fraseArriba ? 'top:26px' : 'bottom:26px';
+  const frase = conFrase && !(T.sinPastilla && !img)
+    ? `<div class="script" style="position:absolute;left:28px;${posFrase};max-width:${w - 56}px;padding:8px 28px 16px;border-radius:32px;background:rgba(255,255,255,0.80);font-size:62px;color:${T.acento}">${T.frase}</div>`
+    : '';
+  return `<div class="tarjeta" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden">${contenido}${frase}</div>`;
+}
+
+// ---------- Calendario ----------
+const primerDia = (new Date(D.anio, D.mes - 1, 1).getDay() + 6) % 7; // lunes = 0
+const totalDias = new Date(D.anio, D.mes, 0).getDate();
+const feriados = new Set(((D.feriados || {})[String(D.mes)]) || []);
+
+const especiales = [];
+(T.especiales || []).forEach(e => {
+  let dia = e.dia;
+  if (e.nthDom) {
+    let cuenta = 0;
+    for (let d = 1; d <= totalDias; d++) {
+      if (new Date(D.anio, D.mes - 1, d).getDay() === 0 && ++cuenta === e.nthDom) { dia = d; break; }
+    }
+  }
+  if (dia) especiales.push({ dia, etiqueta: e.etiqueta });
+});
+if (D.cumpleanios && D.cumpleanios.mes === D.mes && D.cumpleanios.dia) {
+  especiales.push({ dia: D.cumpleanios.dia, etiqueta: 'Mi cumpleaños' });
+}
+const diaEspecial = new Set(especiales.map(e => e.dia));
+
+// Los meses que ocupan 6 filas usan celdas más chicas para que todo quepa en la tarjeta
+const filas = Math.ceil((primerDia + totalDias) / 7);
+const tam = filas > 5 ? 52 : 62;
+const tamLetra = filas > 5 ? 27 : 30;
+const espacioFilas = filas > 5 ? 6 : 8;
+
+let celdas = '';
+for (let i = 0; i < 7; i++) {
+  const color = i >= 5 ? T.acento : T.panel;
+  celdas += `<div class="celda" style="height:40px;font-size:24px;font-weight:800;color:${color}">${LETRAS[i]}</div>`;
+}
+for (let i = 0; i < primerDia; i++) celdas += `<div class="celda" style="width:${tam}px;height:${tam}px"></div>`;
+for (let d = 1; d <= totalDias; d++) {
+  const col = (primerDia + d - 1) % 7;
+  const color = col >= 5 ? T.acento : T.texto;
+  const fondo = feriados.has(d) ? `background:${T.feriado};` : '';
+  const aro = diaEspecial.has(d) ? `box-shadow:inset 0 0 0 4px ${T.acento};` : '';
+  celdas += `<div class="celda" style="width:${tam}px;height:${tam}px;font-size:${tamLetra}px;color:${color};${fondo}${aro}">${d}</div>`;
+}
+
+let leyenda = '';
+if (feriados.size) {
+  leyenda += `<div style="display:flex;align-items:center;gap:12px"><div style="width:22px;height:22px;border-radius:50%;background:${T.feriado}"></div>Feriados</div>`;
+}
+const etiquetas = [...new Set(especiales.map(e => e.etiqueta))];
+etiquetas.forEach(et => {
+  leyenda += `<div style="display:flex;align-items:center;gap:12px"><div style="width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:4px solid ${T.acento}"></div>${et}</div>`;
+});
+
+const iconoTitulo = (MOTIVOS[T.motivo] || MOTIVOS.primavera)[0];
+
+// ---------- Armado de la página ----------
+const html = `
+<div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:radial-gradient(circle at 22% 95%, ${T.brillo2} 0, transparent 45%), radial-gradient(circle at 92% 8%, ${T.brillo1} 0, transparent 40%), ${T.fondo}">
+
+  <div class="tarjeta" style="left:24px;top:24px;width:532px;height:976px;background:${T.panel};overflow:hidden">
+    <div style="position:absolute;left:14px;top:14px;right:14px;bottom:14px;border-radius:26px;border:2px dashed rgba(255,255,255,0.38)"></div>
+    <svg viewBox="0 0 300 260" width="300" height="260" style="position:absolute;right:0;bottom:0;display:block">${formasSueltas(300, 260, D.mes * 10 + 3, 7, 22, 46)}</svg>
+    <div class="script" style="position:absolute;left:44px;bottom:34px;font-size:46px;color:${T.tarjeta}">mis apps</div>
+  </div>
+
+  <div class="tarjeta" style="left:580px;top:24px;width:700px;height:600px;padding:40px 44px;background:${T.tarjeta}">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:baseline;gap:18px">
+        <div class="script" style="font-size:92px;color:${T.acento}">${MESES[D.mes - 1]}</div>
+        <div style="font-size:34px;font-weight:800;color:${T.panel};letter-spacing:2px">${D.anio}</div>
+      </div>
+      <svg viewBox="-40 -40 80 80" width="76" height="76" style="display:block">${FORMAS[iconoTitulo](30, T.formas[0])}</svg>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));justify-items:center;row-gap:${espacioFilas}px;margin-top:22px">${celdas}</div>
+    <div style="display:flex;align-items:center;gap:30px;margin-top:14px;font-size:20px;font-weight:700;color:${T.texto}">${leyenda}</div>
+  </div>
+
+  ${espacioImagen(580, 648, 700, 352, 1, D.mes * 10 + 2, false)}
+  ${espacioImagen(1304, 24, 592, 470, 0, D.mes * 10 + 1, true)}
+
+  <div class="tarjeta" style="left:1304px;top:518px;width:592px;height:482px;padding:36px 44px;background:${T.tarjeta}">
+    <div style="position:absolute;left:236px;top:-12px;width:120px;height:30px;border-radius:6px;background:${T.feriado};opacity:0.9;transform:rotate(-3deg)"></div>
+    <div class="script" style="font-size:58px;color:${T.acento}">notas</div>
+    <div style="margin-top:14px;height:330px;background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0, rgba(0,0,0,0) 54px, ${T.suave} 54px, ${T.suave} 56px)"></div>
+  </div>
+</div>`;
+
+document.getElementById('raiz').innerHTML = html;
+
+Promise.all([
+  document.fonts.ready,
+  ...[...document.images].map(i => i.decode().catch(() => {}))
+]).then(() => { window.__LISTO__ = true; });
+</script>
+</body>
+</html>
